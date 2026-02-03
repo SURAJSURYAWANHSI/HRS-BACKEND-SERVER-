@@ -107,7 +107,7 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
         setFormData({
             name: '',
             sku: '',
-            category: '',
+            category: 'Raw Material',
             quantity: 0,
             unit: 'pcs',
             minStock: 10,
