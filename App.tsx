@@ -106,14 +106,20 @@ const App: React.FC = () => {
             joinedDate: Date.now()
         };
         setWorkers(prev => [...prev, newWorker]);
+        // Emit to server for real-time sync
+        socketService.sendMessage('worker:create', newWorker);
     };
 
     const handleUpdateWorker = (id: string, updates: Partial<Worker>) => {
         setWorkers(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+        // Emit to server for real-time sync
+        socketService.sendMessage('worker:update', { id, updates });
     };
 
     const handleDeleteWorker = (id: string) => {
         setWorkers(prev => prev.filter(w => w.id !== id));
+        // Emit to server for real-time sync
+        socketService.sendMessage('worker:delete', id);
     };
 
     const handleAddInventoryItem = (item: any) => {

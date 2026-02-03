@@ -105,6 +105,48 @@ io.on('connection', (socket) => {
         socket.emit('job:sync_all', globalJobs);
     });
 
+    // -- WORKER MANAGEMENT EVENTS --
+    let globalWorkers = [];
+
+    // Admin creates a new worker
+    socket.on('worker:create', (workerData) => {
+        console.log('New Worker Created:', workerData.name);
+        if (!globalWorkers.some(w => w.id === workerData.id)) {
+            globalWorkers.push(workerData);
+        }
+        io.emit('worker:new', workerData);
+    });
+
+    // Admin updates a worker
+    socket.on('worker:update', (data) => {
+        console.log(`Worker Updated: ${data.id}`);
+        const idx = globalWorkers.findIndex(w => w.id === data.id);
+        if (idx !== -1) {
+            globalWorkers[idx] = { ...globalWorkers[idx], ...data.updates };
+        }
+        io.emit('worker:updated', data);
+    });
+
+    // Admin deletes a worker
+    socket.on('worker:delete', (workerId) => {
+        console.log(`Worker Deleted: ${workerId}`);
+        globalWorkers = globalWorkers.filter(w => w.id !== workerId);
+        io.emit('worker:deleted', workerId);
+    });
+
+    // Admin syncs all workers
+    socket.on('worker:sync_all_from_admin', (adminWorkers) => {
+        console.log(`Received ${adminWorkers.length} workers from Admin.`);
+        globalWorkers = adminWorkers;
+        io.emit('worker:sync_all', globalWorkers);
+    });
+
+    // Worker requests worker list
+    socket.on('worker:request_sync', () => {
+        console.log(`Client requested workers sync. Sending ${globalWorkers.length} workers.`);
+        socket.emit('worker:sync_all', globalWorkers);
+    });
+
     // Chat / Messaging
     socket.on('message:send', (data) => {
         io.emit('message:receive', data);
