@@ -376,6 +376,7 @@ const App: React.FC = () => {
 
                     <ActiveCallOverlay
                         isOpen={isInCall || isCalling}
+                        isInCall={isInCall}
                         callerName={incomingCall?.callerName || 'Worker'}
                         callType={incomingCall?.type || callType}
                         onEndCall={endCall}

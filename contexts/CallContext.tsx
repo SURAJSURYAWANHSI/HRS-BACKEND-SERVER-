@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { socketService } from '../services/socket';
 import { notificationSound } from '../services/notificationSound';
 
@@ -18,33 +18,74 @@ interface CallContextType {
 const CallContext = createContext<CallContextType | null>(null);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [isCalling, setIsCalling] = useState(false); // Outgoing
-    const [isInCall, setIsInCall] = useState(false); // Connected
+    const [isCalling, setIsCalling] = useState(false);
+    const [isInCall, setIsInCall] = useState(false);
     const [callType, setCallType] = useState<'AUDIO' | 'VIDEO'>('AUDIO');
     const [incomingCall, setIncomingCall] = useState<{ callerId: string; callerName: string; offer: any; type: 'AUDIO' | 'VIDEO' } | null>(null);
-
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-    const peerConnection = useRef<RTCPeerConnection | null>(null);
-    const remoteSocketId = useRef<string | null>(null);
+    // Use refs to avoid stale closures
+    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+    const remoteSocketIdRef = useRef<string | null>(null);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const incomingCallRef = useRef<{ callerId: string; callerName: string; offer: any; type: 'AUDIO' | 'VIDEO' } | null>(null);
 
-    // -- SETUP WEBRTC --
-    const setupPeerConnection = () => {
-        if (peerConnection.current) return peerConnection.current;
+    // Keep refs in sync
+    useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+    useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
 
+    // Cleanup function using refs
+    const cleanupCall = useCallback(() => {
+        console.log('[Admin CallContext] Cleaning up call...');
+
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => {
+                track.stop();
+                console.log('[Admin CallContext] Stopped track:', track.kind);
+            });
+        }
+
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+            console.log('[Admin CallContext] Closed peer connection');
+        }
+
+        setLocalStream(null);
+        setRemoteStream(null);
+        setIncomingCall(null);
+        setIsCalling(false);
+        setIsInCall(false);
+        remoteSocketIdRef.current = null;
+        notificationSound.stop();
+
+        console.log('[Admin CallContext] Cleanup complete');
+    }, []);
+
+    // Setup WebRTC Peer Connection
+    const setupPeerConnection = useCallback(() => {
+        if (peerConnectionRef.current) {
+            console.log('[Admin CallContext] Reusing existing peer connection');
+            return peerConnectionRef.current;
+        }
+
+        console.log('[Admin CallContext] Creating new peer connection');
         const pc = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' }
             ]
         });
 
         pc.onicecandidate = (event) => {
-            if (event.candidate && remoteSocketId.current) {
+            if (event.candidate && remoteSocketIdRef.current) {
+                console.log('[Admin CallContext] Sending ICE candidate');
                 socketService.sendMessage('call:ice-candidate', {
-                    target: remoteSocketId.current, // Keep this if server handles it, OR broadcast with receiverId
-                    receiverId: remoteSocketId.current,
+                    target: remoteSocketIdRef.current,
+                    receiverId: remoteSocketIdRef.current,
                     senderId: 'ADMIN',
                     candidate: event.candidate
                 });
@@ -52,112 +93,144 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         pc.ontrack = (event) => {
-            console.log('Remote Stream Received globally');
-            setRemoteStream(event.streams[0]);
+            console.log('[Admin CallContext] Remote track received:', event.track.kind);
+            if (event.streams && event.streams[0]) {
+                setRemoteStream(event.streams[0]);
+            }
         };
 
-        peerConnection.current = pc;
+        pc.onconnectionstatechange = () => {
+            console.log('[Admin CallContext] Connection state:', pc.connectionState);
+            if (pc.connectionState === 'connected') {
+                console.log('[Admin CallContext] WebRTC Connected!');
+                setIsInCall(true);
+            } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                console.log('[Admin CallContext] WebRTC Disconnected/Failed');
+                cleanupCall();
+            }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log('[Admin CallContext] ICE state:', pc.iceConnectionState);
+        };
+
+        peerConnectionRef.current = pc;
         return pc;
-    };
+    }, [cleanupCall]);
 
-    const cleanupCall = () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        if (peerConnection.current) {
-            peerConnection.current.close();
-            peerConnection.current = null;
-        }
-        setLocalStream(null);
-        setRemoteStream(null);
-        setIncomingCall(null);
-        setIsCalling(false);
-        setIsInCall(false);
-        remoteSocketId.current = null;
-    };
-
-    // -- SOCKET LISTENERS --
+    // Socket event handlers
     useEffect(() => {
-        // Handle Incoming Offer
-        socketService.onMessage('call:offer', async (data: any) => {
+        const handleOffer = async (data: any) => {
             // Filter: Only accept if intended for ADMIN
             if (data.receiverId !== 'ADMIN') return;
 
-            console.log('Incoming Call Offer:', data);
+            console.log('[Admin CallContext] Received offer:', data);
 
-            // If already in call, maybe reject or ignore? For now auto-reject or show busy could be nice but let's just ring.
+            // Don't answer if already in a call
+            if (peerConnectionRef.current) {
+                console.log('[Admin CallContext] Already in a call, ignoring');
+                return;
+            }
+
             setIncomingCall({
                 callerId: data.senderId,
-                callerName: data.senderId, // Or look up worker name
+                callerName: data.senderId,
                 offer: data.offer,
                 type: data.type === 'video' ? 'VIDEO' : 'AUDIO'
             });
-            remoteSocketId.current = data.senderId;
+            remoteSocketIdRef.current = data.senderId;
             notificationSound.playRingtone();
-        });
+        };
 
-        // Handle Answer (When we are the caller)
-        socketService.onMessage('call:answer', async (data: any) => {
+        const handleAnswer = async (data: any) => {
             if (data.receiverId !== 'ADMIN') return;
 
-            console.log('Call Accepted by Peer', data);
+            console.log('[Admin CallContext] Received answer:', data);
+            notificationSound.stop();
             setIsCalling(false);
             setIsInCall(true);
-            notificationSound.stop(); // Stop ringing out
 
-            if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+            if (peerConnectionRef.current && data.answer) {
+                try {
+                    await peerConnectionRef.current.setRemoteDescription(
+                        new RTCSessionDescription(data.answer)
+                    );
+                    console.log('[Admin CallContext] Remote description set');
+                } catch (err) {
+                    console.error('[Admin CallContext] Error setting remote description:', err);
+                }
             }
-        });
+        };
 
-        // Handle End/Reject
-        socketService.onMessage('call:end', (data: any) => {
-            // Check if it relates to us (either we are sender or receiver involved)
-            // Simplified: If we are in a call with this person, end it.
-            if (remoteSocketId.current && (data.senderId === remoteSocketId.current || data.receiverId === 'ADMIN')) {
-                console.log('Call Ended by Remote');
+        const handleEnd = (data: any) => {
+            console.log('[Admin CallContext] Received end signal:', data);
+
+            const fromMyPeer = remoteSocketIdRef.current && data.senderId === remoteSocketIdRef.current;
+            const forMe = data.receiverId === 'ADMIN';
+
+            if (fromMyPeer || forMe) {
+                console.log('[Admin CallContext] Call ended by remote');
                 notificationSound.stop();
                 cleanupCall();
             }
-        });
+        };
 
-        // Handle ICE Candidates
-        socketService.onMessage('call:ice-candidate', async (data: any) => {
+        const handleIceCandidate = async (data: any) => {
             if (data.receiverId !== 'ADMIN') return;
 
-            if (peerConnection.current) {
+            if (peerConnectionRef.current && data.candidate) {
                 try {
-                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    await peerConnectionRef.current.addIceCandidate(
+                        new RTCIceCandidate(data.candidate)
+                    );
+                    console.log('[Admin CallContext] Added ICE candidate');
                 } catch (e) {
-                    console.error('Error adding received ice candidate', e);
+                    console.error('[Admin CallContext] Error adding ICE candidate:', e);
                 }
             }
-        });
-
-        return () => {
-            // clear listeners if needed
         };
-    }, []);
 
-    // -- ACTIONS --
-    const startCall = async (targetId: string, type: 'AUDIO' | 'VIDEO') => {
+        // Register listeners
+        socketService.onMessage('call:offer', handleOffer);
+        socketService.onMessage('call:answer', handleAnswer);
+        socketService.onMessage('call:end', handleEnd);
+        socketService.onMessage('call:ice-candidate', handleIceCandidate);
+
+        // Cleanup on unmount
+        return () => {
+            socketService.off('call:offer', handleOffer);
+            socketService.off('call:answer', handleAnswer);
+            socketService.off('call:end', handleEnd);
+            socketService.off('call:ice-candidate', handleIceCandidate);
+        };
+    }, [cleanupCall]);
+
+    // Start outgoing call
+    const startCall = useCallback(async (targetId: string, type: 'AUDIO' | 'VIDEO') => {
+        console.log('[Admin CallContext] Starting call to:', targetId, type);
+
         setIsCalling(true);
         setCallType(type);
-        remoteSocketId.current = targetId;
+        remoteSocketIdRef.current = targetId;
 
-        // Get Local Stream
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: type === 'VIDEO'
             });
+            console.log('[Admin CallContext] Got local stream');
             setLocalStream(stream);
+            localStreamRef.current = stream;
 
             const pc = setupPeerConnection();
-            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            stream.getTracks().forEach(track => {
+                pc.addTrack(track, stream);
+                console.log('[Admin CallContext] Added track:', track.kind);
+            });
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
+            console.log('[Admin CallContext] Created and set local offer');
 
             socketService.sendMessage('call:offer', {
                 receiverId: targetId,
@@ -167,64 +240,88 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
         } catch (err) {
-            console.error('Failed to start call:', err);
-            setIsCalling(false);
+            console.error('[Admin CallContext] Failed to start call:', err);
+            cleanupCall();
         }
-    };
+    }, [setupPeerConnection, cleanupCall]);
 
-    const answerCall = async () => {
-        if (!incomingCall) return;
-        notificationSound.stop();
+    // Answer incoming call
+    const answerCall = useCallback(async () => {
+        const call = incomingCallRef.current;
+        if (!call) {
+            console.log('[Admin CallContext] No incoming call to answer');
+            return;
+        }
+
+        console.log('[Admin CallContext] Answering call from:', call.callerId);
 
         try {
-            const type = incomingCall.type;
+            notificationSound.stop();
+            setCallType(call.type);
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
-                video: type === 'VIDEO'
+                video: call.type === 'VIDEO'
             });
+            console.log('[Admin CallContext] Got local stream for answer');
             setLocalStream(stream);
+            localStreamRef.current = stream;
 
             const pc = setupPeerConnection();
-            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            stream.getTracks().forEach(track => {
+                pc.addTrack(track, stream);
+                console.log('[Admin CallContext] Added track:', track.kind);
+            });
 
-            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+            await pc.setRemoteDescription(new RTCSessionDescription(call.offer));
+            console.log('[Admin CallContext] Set remote description from offer');
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
+            console.log('[Admin CallContext] Created and set local answer');
 
             socketService.sendMessage('call:answer', {
-                receiverId: incomingCall.callerId,
+                receiverId: call.callerId,
                 senderId: 'ADMIN',
                 answer: answer
             });
 
             setIsInCall(true);
             setIncomingCall(null);
-        } catch (err) {
-            console.error('Error answering call:', err);
-        }
-    };
+            console.log('[Admin CallContext] Call answered successfully');
 
-    const rejectCall = () => {
-        if (incomingCall) {
+        } catch (err) {
+            console.error('[Admin CallContext] Error answering call:', err);
+            cleanupCall();
+        }
+    }, [setupPeerConnection, cleanupCall]);
+
+    // Reject incoming call
+    const rejectCall = useCallback(() => {
+        const call = incomingCallRef.current;
+        if (call) {
+            console.log('[Admin CallContext] Rejecting call from:', call.callerId);
             notificationSound.stop();
             socketService.sendMessage('call:end', {
-                receiverId: incomingCall.callerId,
+                receiverId: call.callerId,
                 senderId: 'ADMIN'
             });
             setIncomingCall(null);
-            remoteSocketId.current = null;
+            remoteSocketIdRef.current = null;
         }
-    };
+    }, []);
 
-    const endCall = () => {
-        if (remoteSocketId.current) {
+    // End active call
+    const endCall = useCallback(() => {
+        console.log('[Admin CallContext] Ending call');
+        if (remoteSocketIdRef.current) {
             socketService.sendMessage('call:end', {
-                receiverId: remoteSocketId.current, // Target
+                receiverId: remoteSocketIdRef.current,
                 senderId: 'ADMIN'
             });
         }
         cleanupCall();
-    };
+    }, [cleanupCall]);
 
     return (
         <CallContext.Provider value={{

@@ -335,20 +335,37 @@ export const IncomingCallOverlay: React.FC<{
 // Active Call Overlay (Full Screen - Premium Android Style)
 export const ActiveCallOverlay: React.FC<{
     isOpen: boolean;
+    isInCall?: boolean;
     callerName: string;
     callType?: 'AUDIO' | 'VIDEO';
     onEndCall: () => void;
     localStream?: MediaStream | null;
     remoteStream?: MediaStream | null;
-}> = ({ isOpen, callerName, callType = 'VIDEO', onEndCall, localStream, remoteStream }) => {
+}> = ({ isOpen, isInCall = false, callerName, callType = 'VIDEO', onEndCall, localStream, remoteStream }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isSpeaker, setIsSpeaker] = useState(false);
-    const [status, setStatus] = useState('Calling...');
     const [callDuration, setCallDuration] = useState(0);
 
     const localVideoRef = React.useRef<HTMLVideoElement>(null);
     const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
     const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    // Determine status based on isInCall
+    const getStatus = () => {
+        if (isInCall) {
+            return 'Connected';
+        }
+        return 'Calling...';
+    };
+
+    // Start timer when call is connected (isInCall becomes true)
+    useEffect(() => {
+        if (isInCall && !timerRef.current) {
+            timerRef.current = setInterval(() => {
+                setCallDuration(prev => prev + 1);
+            }, 1000);
+        }
+    }, [isInCall]);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -359,14 +376,6 @@ export const ActiveCallOverlay: React.FC<{
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
-            setStatus('Connected');
-            if (!timerRef.current) {
-                timerRef.current = setInterval(() => {
-                    setCallDuration(prev => prev + 1);
-                }, 1000);
-            }
-        } else {
-            setStatus('Calling...');
         }
     }, [remoteStream]);
 
@@ -382,7 +391,6 @@ export const ActiveCallOverlay: React.FC<{
     useEffect(() => {
         if (!isOpen) {
             setCallDuration(0);
-            setStatus('Calling...');
             if (timerRef.current) {
                 clearInterval(timerRef.current);
                 timerRef.current = null;
@@ -407,6 +415,7 @@ export const ActiveCallOverlay: React.FC<{
 
     if (!isOpen) return null;
 
+    const status = getStatus();
     const displayStatus = status === 'Connected' ? formatDuration(callDuration) : status;
 
     return (
