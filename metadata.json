@@ -1,0 +1,8 @@
+{
+  "name": "ADMIN : ProTrack",
+  "description": "Enterprise-grade mobile  dashboard for fabrication tracking, featuring Excel integration and real-time status management.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}

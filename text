@@ -1,0 +1,350 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Activity, Clock, Box, AlertTriangle, RotateCcw, Truck, XCircle, Trash2
+} from 'lucide-react';
+import { WorkflowEngine } from '../services/workflow';
+import { Job, Message, Worker, JobStage } from '../types';
+import { STAGES, STAGE_LABELS, STAGE_COLORS } from '../constants';
+
+// UI Components
+import { Sidebar } from './ui/Sidebar';
+import { QCNotificationToast } from './ui/QCNotificationToast';
+
+// Dashboard Components
+import { StatCard } from './admin/dashboard/StatCard';
+import { StatsOverview } from './admin/dashboard/StatsOverview';
+import { ProductionInsights } from './admin/dashboard/ProductionInsights';
+
+// Stage Components
+import { DesignStage } from './admin/stages/DesignStage';
+import { ProductionStage } from './admin/stages/ProductionStage';
+import { QCStage } from './admin/stages/QCStage';
+
+interface AdminDashboardProps {
+    currentView: 'DASHBOARD' | 'LEDGER' | 'BROADCAST' | 'QUALITY' | JobStage;
+    setView: (view: string) => void;
+    jobs: Job[];
+    setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+    workers: Worker[];
+    setWorkers: React.Dispatch<React.SetStateAction<Worker[]>>;
+    onCall: (workerName: string, type: 'AUDIO' | 'VIDEO') => void;
+    onDeleteJob?: (jobId: string) => void;
+    searchTerm?: string;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, jobs, setJobs, messages, setMessages, workers, setWorkers, onCall, onDeleteJob, searchTerm = '' }) => {
+    const [selectedJobDetail, setSelectedJobDetail] = useState<Job | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null);
+
+    // Dispatch Specific State
+    const [dispatchVehicle, setDispatchVehicle] = useState('');
+    const [dispatchChallan, setDispatchChallan] = useState('');
+
+    // Notification State
+    const [qcPendingCount, setQcPendingCount] = useState(0);
+    const [showNotification, setShowNotification] = useState(false);
+
+    useEffect(() => {
+        setActiveStatFilter(null);
+    }, [currentView]);
+
+    const openJobDetail = (job: Job) => {
+        setSelectedJobDetail(job);
+        setDispatchVehicle(job.vehicleNumber || '');
+        setDispatchChallan(job.challanNumber || '');
+        setIsDetailModalOpen(true);
+    };
+
+    const handleApproveSpec = (id: string) => {
+        setJobs(prev => prev.map(j => j.id === id ? WorkflowEngine.completeStage(j, 'Admin Approval') : j));
+    };
+
+    const handleMarkComplete = (id: string) => {
+        setJobs(prev => prev.map(j => j.id === id ? WorkflowEngine.completeStage(j, 'Admin Force Complete') : j));
+    };
+
+    const handleDelete = () => {
+        if (selectedJobDetail && onDeleteJob) {
+            onDeleteJob(selectedJobDetail.id);
+            setIsDetailModalOpen(false);
+        }
+    };
+
+    const getJobsForView = () => {
+        let filtered = jobs;
+
+        if (STAGES.includes(currentView as JobStage)) {
+            filtered = jobs.filter(j => j.currentStage === currentView && !j.isCompleted);
+        } else {
+            switch (currentView) {
+                case 'DASHBOARD':
+                    if (!activeStatFilter || activeStatFilter === 'TOTAL') {
+                        filtered = jobs;
+                    } else if (activeStatFilter === 'PENDING') {
+                        filtered = jobs.filter(j => !j.isCompleted);
+                    } else if (activeStatFilter === 'IN_PROD') {
+                        filtered = jobs.filter(j => !j.isCompleted && j.currentStage !== 'DESIGN' && j.currentStage !== 'DISPATCH');
+                    } else if (activeStatFilter === 'QUALITY_REJ') {
+                        filtered = jobs.filter(j => j.qcStatus === 'REJECTED');
+                    } else if (activeStatFilter === 'DELAYED') {
+                        filtered = jobs.filter(j => !j.isCompleted && (Date.now() - j.startTime) > (j.maxCompletionTime * 24 * 60 * 60 * 1000));
+                    } else if (activeStatFilter === 'TODAY_DISP') {
+                        filtered = jobs.filter(j => j.isCompleted && new Date(j.lastUpdated).toDateString() === new Date().toDateString());
+                    } else if (activeStatFilter === 'REJ_RATE') {
+                        filtered = jobs.filter(j => j.qcStatus === 'REJECTED');
+                    }
+                    break;
+                case 'LEDGER':
+                    filtered = jobs.slice().sort((a, b) => b.startTime - a.startTime);
+                    break;
+            }
+        }
+        if (searchTerm) {
+            const lowSearch = searchTerm.toLowerCase();
+            filtered = filtered.filter(j =>
+                j.customer.toLowerCase().includes(lowSearch) ||
+                j.codeNo.toLowerCase().includes(lowSearch)
+            );
+        }
+        return filtered;
+    };
+
+    const displayedJobs = getJobsForView();
+
+    return (
+        <div className= "max-w-[1800px] mx-auto w-full px-10 py-12 flex flex-col gap-12" >
+        { currentView === 'DASHBOARD' && (
+            <div className="animate-in fade-in slide-in-from-left duration-700" >
+                <h1 className="text-7xl font-black text-white uppercase tracking-tighter leading-none mb-4" > Dashboard </h1>
+                    < p className = "text-xs font-black text-slate-500 uppercase tracking-[0.4em] ml-2" > Live Production Overview </p>
+                        </div>
+            )}
+<div className="flex-none space-y-12" >
+    { currentView === 'DASHBOARD' && (
+        <>
+        <StatsOverview jobs={ jobs } activeStatFilter = { activeStatFilter } setActiveStatFilter = { setActiveStatFilter } />
+            <ProductionInsights jobs={ jobs } />
+                </>
+                )}
+</div>
+    < div className = "flex-1" id = "main-dashboard-content" >
+        { currentView === 'DASHBOARD' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pb-20" >
+            {
+                displayedJobs.map(job => (
+                    <div key= { job.id } onClick = {() => openJobDetail(job)} className = "bg-[#1E293B]/80 backdrop-blur-xl rounded-[2.5rem] p-7 border border-slate-800/50 hover:border-slate-600/50 transition-all duration-500 hover:-translate-y-2 cursor-pointer group shadow-2xl" >
+                        <div className="flex justify-between items-center mb-8" >
+                            <span className="px-4 py-2 bg-[#0F172A] text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-800/50 shadow-inner group-hover:text-blue-400 transition-colors" >#{ job.codeNo } </span>
+                                < div className = {`w-3 h-3 rounded-full blur-[2px] animate-pulse ${STAGE_COLORS[job.currentStage].split(' ')[0]}`}> </div>
+                                    </div>
+                                    < h3 className = "text-xl font-black text-white uppercase tracking-tight mb-4" > { job.customer } </h3>
+                                        < div className = "flex items-center gap-3" >
+                                            <span className={ `px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest ${STAGE_COLORS[job.currentStage]} shadow-lg shadow-black/20 border border-white/5` }> { STAGE_LABELS[job.currentStage]} </span>
+                                                </div>
+                                                </div>
+                            ))}
+</div>
+                )}
+{ currentView === 'DESIGN' && <DesignStage jobs={ displayedJobs } onApproveSpec = { handleApproveSpec } />}
+{ currentView === 'CUTTING' && <ProductionStage stage="CUTTING" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'FABRICATION' && <ProductionStage stage="FABRICATION" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'ASSEMBLY' && <ProductionStage stage="ASSEMBLY" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'QUALITY' && <QCStage jobs={ displayedJobs } /> }
+</div>
+
+    < Sidebar isOpen = { isDetailModalOpen } onClose = {() => setIsDetailModalOpen(false)} title = "Job Inspector" subtitle = { selectedJobDetail?.codeNo } >
+        { selectedJobDetail && (
+            <div className="space-y-8" >
+                <div className="bg-[#1E293B] p-6 rounded-3xl border border-slate-800" > <h3 className="text-2xl font-black text-white uppercase leading-none mb-2" > { selectedJobDetail.customer } < /h3><p className="text-sm font-bold text-slate-500">{selectedJobDetail.description}</p > </div>
+                    < div className = "grid grid-cols-2 gap-4" >
+                        <div className="bg-[#1E293B] p-4 rounded-2xl border border-slate-800" > <p className="text-[10px] font-black text-slate-500 uppercase" > Qty < /p><p className="text-xl font-black text-white">{selectedJobDetail.totalQty}</p > </div>
+                            < div className = "bg-[#1E293B] p-4 rounded-2xl border border-slate-800" > <p className="text-[10px] font-black text-slate-500 uppercase" > Size < /p><p className="text-xl font-black text-white">{selectedJobDetail.panelSize}</p > </div>
+                                </div>
+                                < button onClick = { handleDelete } className = "w-full py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-[1.5rem] font-black uppercase text-xs hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2 mt-8" > <Trash2 size={ 16 } /> Delete Job Order</button >
+                                    </div>
+                )}
+</Sidebar>
+{ showNotification && <QCNotificationToast count={ qcPendingCount } onClose = {() => setShowNotification(false) } />}
+</div>
+    );
+};
+
+export default AdminDashboard;
+import React, { useState, useEffect } from 'react';
+import {
+    Activity, Clock, Box, AlertTriangle, RotateCcw, Truck, XCircle, Trash2
+} from 'lucide-react';
+import { WorkflowEngine } from '../services/workflow';
+import { Job, Message, Worker, JobStage } from '../types';
+import { STAGES, STAGE_LABELS, STAGE_COLORS } from '../constants';
+
+// UI Components
+import { Sidebar } from './ui/Sidebar';
+import { QCNotificationToast } from './ui/QCNotificationToast';
+
+// Dashboard Components
+import { StatCard } from './admin/dashboard/StatCard';
+import { StatsOverview } from './admin/dashboard/StatsOverview';
+import { ProductionInsights } from './admin/dashboard/ProductionInsights';
+
+// Stage Components
+import { DesignStage } from './admin/stages/DesignStage';
+import { ProductionStage } from './admin/stages/ProductionStage';
+import { QCStage } from './admin/stages/QCStage';
+
+interface AdminDashboardProps {
+    currentView: 'DASHBOARD' | 'LEDGER' | 'BROADCAST' | 'QUALITY' | JobStage;
+    setView: (view: string) => void;
+    jobs: Job[];
+    setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+    workers: Worker[];
+    setWorkers: React.Dispatch<React.SetStateAction<Worker[]>>;
+    onCall: (workerName: string, type: 'AUDIO' | 'VIDEO') => void;
+    onDeleteJob?: (jobId: string) => void;
+    searchTerm?: string;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, jobs, setJobs, messages, setMessages, workers, setWorkers, onCall, onDeleteJob, searchTerm = '' }) => {
+    const [selectedJobDetail, setSelectedJobDetail] = useState<Job | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null);
+
+    // Dispatch Specific State
+    const [dispatchVehicle, setDispatchVehicle] = useState('');
+    const [dispatchChallan, setDispatchChallan] = useState('');
+
+    // Notification State
+    const [qcPendingCount, setQcPendingCount] = useState(0);
+    const [showNotification, setShowNotification] = useState(false);
+
+    useEffect(() => {
+        setActiveStatFilter(null);
+    }, [currentView]);
+
+    const openJobDetail = (job: Job) => {
+        setSelectedJobDetail(job);
+        setDispatchVehicle(job.vehicleNumber || '');
+        setDispatchChallan(job.challanNumber || '');
+        setIsDetailModalOpen(true);
+    };
+
+    const handleApproveSpec = (id: string) => {
+        setJobs(prev => prev.map(j => j.id === id ? WorkflowEngine.completeStage(j, 'Admin Approval') : j));
+    };
+
+    const handleMarkComplete = (id: string) => {
+        setJobs(prev => prev.map(j => j.id === id ? WorkflowEngine.completeStage(j, 'Admin Force Complete') : j));
+    };
+
+    const handleDelete = () => {
+        if (selectedJobDetail && onDeleteJob) {
+            onDeleteJob(selectedJobDetail.id);
+            setIsDetailModalOpen(false);
+        }
+    };
+
+    const getJobsForView = () => {
+        let filtered = jobs;
+
+        if (STAGES.includes(currentView as JobStage)) {
+            filtered = jobs.filter(j => j.currentStage === currentView && !j.isCompleted);
+        } else {
+            switch (currentView) {
+                case 'DASHBOARD':
+                    if (!activeStatFilter || activeStatFilter === 'TOTAL') {
+                        filtered = jobs;
+                    } else if (activeStatFilter === 'PENDING') {
+                        filtered = jobs.filter(j => !j.isCompleted);
+                    } else if (activeStatFilter === 'IN_PROD') {
+                        filtered = jobs.filter(j => !j.isCompleted && j.currentStage !== 'DESIGN' && j.currentStage !== 'DISPATCH');
+                    } else if (activeStatFilter === 'QUALITY_REJ') {
+                        filtered = jobs.filter(j => j.qcStatus === 'REJECTED');
+                    } else if (activeStatFilter === 'DELAYED') {
+                        filtered = jobs.filter(j => !j.isCompleted && (Date.now() - j.startTime) > (j.maxCompletionTime * 24 * 60 * 60 * 1000));
+                    } else if (activeStatFilter === 'TODAY_DISP') {
+                        filtered = jobs.filter(j => j.isCompleted && new Date(j.lastUpdated).toDateString() === new Date().toDateString());
+                    } else if (activeStatFilter === 'REJ_RATE') {
+                        filtered = jobs.filter(j => j.qcStatus === 'REJECTED');
+                    }
+                    break;
+                case 'LEDGER':
+                    filtered = jobs.slice().sort((a, b) => b.startTime - a.startTime);
+                    break;
+            }
+        }
+        if (searchTerm) {
+            const lowSearch = searchTerm.toLowerCase();
+            filtered = filtered.filter(j =>
+                j.customer.toLowerCase().includes(lowSearch) ||
+                j.codeNo.toLowerCase().includes(lowSearch)
+            );
+        }
+        return filtered;
+    };
+
+    const displayedJobs = getJobsForView();
+
+    return (
+        <div className= "max-w-[1800px] mx-auto w-full px-10 py-12 flex flex-col gap-12" >
+        { currentView === 'DASHBOARD' && (
+            <div className="animate-in fade-in slide-in-from-left duration-700" >
+                <h1 className="text-7xl font-black text-white uppercase tracking-tighter leading-none mb-4" > Dashboard </h1>
+                    < p className = "text-xs font-black text-slate-500 uppercase tracking-[0.4em] ml-2" > Live Production Overview </p>
+                        </div>
+            )}
+<div className="flex-none space-y-12" >
+    { currentView === 'DASHBOARD' && (
+        <>
+        <StatsOverview jobs={ jobs } activeStatFilter = { activeStatFilter } setActiveStatFilter = { setActiveStatFilter } />
+            <ProductionInsights jobs={ jobs } />
+                </>
+                )}
+</div>
+    < div className = "flex-1" id = "main-dashboard-content" >
+        { currentView === 'DASHBOARD' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pb-20" >
+            {
+                displayedJobs.map(job => (
+                    <div key= { job.id } onClick = {() => openJobDetail(job)} className = "bg-[#1E293B]/80 backdrop-blur-xl rounded-[2.5rem] p-7 border border-slate-800/50 hover:border-slate-600/50 transition-all duration-500 hover:-translate-y-2 cursor-pointer group shadow-2xl" >
+                        <div className="flex justify-between items-center mb-8" >
+                            <span className="px-4 py-2 bg-[#0F172A] text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-800/50 shadow-inner group-hover:text-blue-400 transition-colors" >#{ job.codeNo } </span>
+                                < div className = {`w-3 h-3 rounded-full blur-[2px] animate-pulse ${STAGE_COLORS[job.currentStage].split(' ')[0]}`}> </div>
+                                    </div>
+                                    < h3 className = "text-xl font-black text-white uppercase tracking-tight mb-4" > { job.customer } </h3>
+                                        < div className = "flex items-center gap-3" >
+                                            <span className={ `px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest ${STAGE_COLORS[job.currentStage]} shadow-lg shadow-black/20 border border-white/5` }> { STAGE_LABELS[job.currentStage]} </span>
+                                                </div>
+                                                </div>
+                            ))}
+</div>
+                )}
+{ currentView === 'DESIGN' && <DesignStage jobs={ displayedJobs } onApproveSpec = { handleApproveSpec } />}
+{ currentView === 'CUTTING' && <ProductionStage stage="CUTTING" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'FABRICATION' && <ProductionStage stage="FABRICATION" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'ASSEMBLY' && <ProductionStage stage="ASSEMBLY" jobs = { displayedJobs } onMarkComplete = { handleMarkComplete } />}
+{ currentView === 'QUALITY' && <QCStage jobs={ displayedJobs } /> }
+</div>
+
+    < Sidebar isOpen = { isDetailModalOpen } onClose = {() => setIsDetailModalOpen(false)} title = "Job Inspector" subtitle = { selectedJobDetail?.codeNo } >
+        { selectedJobDetail && (
+            <div className="space-y-8" >
+                <div className="bg-[#1E293B] p-6 rounded-3xl border border-slate-800" > <h3 className="text-2xl font-black text-white uppercase leading-none mb-2" > { selectedJobDetail.customer } < /h3><p className="text-sm font-bold text-slate-500">{selectedJobDetail.description}</p > </div>
+                    < div className = "grid grid-cols-2 gap-4" >
+                        <div className="bg-[#1E293B] p-4 rounded-2xl border border-slate-800" > <p className="text-[10px] font-black text-slate-500 uppercase" > Qty < /p><p className="text-xl font-black text-white">{selectedJobDetail.totalQty}</p > </div>
+                            < div className = "bg-[#1E293B] p-4 rounded-2xl border border-slate-800" > <p className="text-[10px] font-black text-slate-500 uppercase" > Size < /p><p className="text-xl font-black text-white">{selectedJobDetail.panelSize}</p > </div>
+                                </div>
+                                < button onClick = { handleDelete } className = "w-full py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-[1.5rem] font-black uppercase text-xs hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2 mt-8" > <Trash2 size={ 16 } /> Delete Job Order</button >
+                                    </div>
+                )}
+</Sidebar>
+{ showNotification && <QCNotificationToast count={ qcPendingCount } onClose = {() => setShowNotification(false) } />}
+</div>
+    );
+};
+
+export default AdminDashboard;
