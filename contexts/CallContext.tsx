@@ -5,6 +5,7 @@ import { notificationSound } from '../services/notificationSound';
 interface CallContextType {
     isCalling: boolean;
     isInCall: boolean;
+    callType: 'AUDIO' | 'VIDEO';
     incomingCall: { callerId: string; callerName: string; offer: any; type: 'AUDIO' | 'VIDEO' } | null;
     localStream: MediaStream | null;
     remoteStream: MediaStream | null;
@@ -19,6 +20,7 @@ const CallContext = createContext<CallContextType | null>(null);
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isCalling, setIsCalling] = useState(false); // Outgoing
     const [isInCall, setIsInCall] = useState(false); // Connected
+    const [callType, setCallType] = useState<'AUDIO' | 'VIDEO'>('AUDIO');
     const [incomingCall, setIncomingCall] = useState<{ callerId: string; callerName: string; offer: any; type: 'AUDIO' | 'VIDEO' } | null>(null);
 
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -140,6 +142,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // -- ACTIONS --
     const startCall = async (targetId: string, type: 'AUDIO' | 'VIDEO') => {
         setIsCalling(true);
+        setCallType(type);
         remoteSocketId.current = targetId;
 
         // Get Local Stream
@@ -227,6 +230,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <CallContext.Provider value={{
             isCalling,
             isInCall,
+            callType,
             incomingCall,
             localStream,
             remoteStream,

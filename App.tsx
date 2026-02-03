@@ -76,7 +76,7 @@ const App: React.FC = () => {
     const [showFloatingChat, setShowFloatingChat] = useState(false);
 
     // Global Call Context
-    const { incomingCall, answerCall, rejectCall, isInCall, isCalling, endCall, localStream, remoteStream } = useCall();
+    const { incomingCall, answerCall, rejectCall, isInCall, isCalling, callType, endCall, localStream, remoteStream } = useCall();
 
     // New Feature States
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -369,13 +369,15 @@ const App: React.FC = () => {
                     <IncomingCallOverlay
                         isVisible={!!incomingCall}
                         callerName={incomingCall?.callerName || 'Worker'}
+                        callType={incomingCall?.type || 'AUDIO'}
                         onAccept={answerCall}
                         onDecline={rejectCall}
                     />
 
                     <ActiveCallOverlay
                         isOpen={isInCall || isCalling}
-                        callerName={incomingCall?.callerName || 'Worker'} // Use incomingCall name or target name (need to fix calling target name visibility if needed, but 'Worker' fallback is safe for now)
+                        callerName={incomingCall?.callerName || 'Worker'}
+                        callType={incomingCall?.type || callType}
                         onEndCall={endCall}
                         localStream={localStream}
                         remoteStream={remoteStream}
