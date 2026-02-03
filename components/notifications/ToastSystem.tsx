@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import {
     CheckCircle2, AlertTriangle, Info, X, Bell, MessageCircle,
-    Video, Briefcase, Shield, Megaphone, Zap, Phone
+    Video, Briefcase, Shield, Megaphone, Zap, Phone,
+    Grid, Mic, MicOff, Volume2, MoreVertical
 } from 'lucide-react';
 import { notificationSound, NotificationSoundType } from '../../services/notificationSound';
 
@@ -215,10 +216,11 @@ export const ToastContainer: React.FC = () => {
 export const IncomingCallOverlay: React.FC<{
     callerName: string;
     callerAvatar?: string;
+    callType?: 'AUDIO' | 'VIDEO';
     onAccept: () => void;
     onDecline: () => void;
     isVisible: boolean;
-}> = ({ callerName, callerAvatar, onAccept, onDecline, isVisible }) => {
+}> = ({ callerName, callerAvatar, callType = 'VIDEO', onAccept, onDecline, isVisible }) => {
     const [ringtoneStopper, setRingtoneStopper] = useState<{ stop: () => void } | null>(null);
 
     useEffect(() => {
@@ -242,15 +244,18 @@ export const IncomingCallOverlay: React.FC<{
     if (!isVisible) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="fixed inset-0 z-[10000] bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 flex items-center justify-center animate-in fade-in duration-300">
             {/* Background animation */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px]">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px]">
                     {[0, 1, 2].map((i) => (
                         <div
                             key={i}
-                            className="absolute inset-0 rounded-full border-2 border-green-500/20 animate-ping"
-                            style={{ animationDelay: `${i * 0.5}s`, animationDuration: '2s' }}
+                            className="absolute inset-0 rounded-full border border-emerald-500/20"
+                            style={{
+                                animation: `ping 2s cubic-bezier(0, 0, 0.2, 1) infinite`,
+                                animationDelay: `${i * 0.5}s`
+                            }}
                         />
                     ))}
                 </div>
@@ -258,41 +263,68 @@ export const IncomingCallOverlay: React.FC<{
 
             {/* Content */}
             <div className="relative z-10 text-center">
-                {/* Caller Avatar */}
-                <div className="relative mx-auto mb-8 w-32 h-32">
-                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-pulse" />
+                {/* Caller Avatar with Ring */}
+                <div className="relative mx-auto mb-8 w-36 h-36">
+                    {/* Outer pulse */}
+                    <div className="absolute inset-0 -m-4 rounded-full bg-emerald-500/10 animate-pulse" />
+
+                    {/* Border ring */}
+                    <div className="absolute inset-0 rounded-full border-4 border-emerald-500" />
+
+                    {/* Avatar */}
                     <div className="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
                         {callerAvatar ? (
                             <img src={callerAvatar} alt={callerName} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                            <span className="text-4xl font-black text-white">{callerName.charAt(0)}</span>
+                            <span className="text-5xl font-bold text-white">{callerName.charAt(0).toUpperCase()}</span>
                         )}
                     </div>
-                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                        <Video size={20} className="text-white" />
+
+                    {/* Call type badge */}
+                    <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40">
+                        {callType === 'VIDEO' ? (
+                            <Video size={24} className="text-white" />
+                        ) : (
+                            <Phone size={24} className="text-white" />
+                        )}
                     </div>
                 </div>
 
                 {/* Caller Info */}
-                <h2 className="text-2xl font-black text-white mb-2">{callerName}</h2>
-                <p className="text-slate-400 text-sm mb-8 flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    Incoming Video Call
+                <h2 className="text-4xl font-bold text-white mb-3">{callerName}</h2>
+                <p className="text-slate-400 text-lg mb-10 flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    {callType === 'VIDEO' ? 'Incoming Video Call' : 'Incoming Voice Call'}
                 </p>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-center gap-8">
+                <div className="flex items-center justify-center gap-16">
+                    {/* Decline */}
                     <button
                         onClick={handleDecline}
-                        className="w-16 h-16 bg-rose-500 hover:bg-rose-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 transition-all hover:scale-110 active:scale-95"
+                        className="flex flex-col items-center gap-3 group"
                     >
-                        <Phone size={28} className="text-white rotate-[135deg]" />
+                        <div className="w-18 h-18 p-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 group-hover:scale-110 group-active:scale-95 transition-transform">
+                            <Phone size={32} className="text-white rotate-[135deg]" />
+                        </div>
+                        <span className="text-sm font-medium text-slate-400">Decline</span>
                     </button>
+
+                    {/* Accept */}
                     <button
                         onClick={handleAccept}
-                        className="w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30 transition-all hover:scale-110 active:scale-95 animate-pulse"
+                        className="flex flex-col items-center gap-3 group"
                     >
-                        <Video size={32} className="text-white" />
+                        <div className="w-20 h-20 p-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 group-hover:scale-110 group-active:scale-95 transition-transform animate-pulse">
+                            {callType === 'VIDEO' ? (
+                                <Video size={36} className="text-white" />
+                            ) : (
+                                <Phone size={36} className="text-white" />
+                            )}
+                        </div>
+                        <span className="text-sm font-medium text-emerald-400">
+                            {callType === 'VIDEO' ? 'Video' : 'Answer'}
+                        </span>
                     </button>
                 </div>
             </div>
@@ -300,18 +332,23 @@ export const IncomingCallOverlay: React.FC<{
     );
 };
 
-// Active Call Overlay (Full Screen)
+// Active Call Overlay (Full Screen - Premium Android Style)
 export const ActiveCallOverlay: React.FC<{
     isOpen: boolean;
     callerName: string;
+    callType?: 'AUDIO' | 'VIDEO';
     onEndCall: () => void;
     localStream?: MediaStream | null;
     remoteStream?: MediaStream | null;
-}> = ({ isOpen, callerName, onEndCall, localStream, remoteStream }) => {
+}> = ({ isOpen, callerName, callType = 'VIDEO', onEndCall, localStream, remoteStream }) => {
+    const [isMuted, setIsMuted] = useState(false);
+    const [isSpeaker, setIsSpeaker] = useState(false);
+    const [status, setStatus] = useState('Calling...');
+    const [callDuration, setCallDuration] = useState(0);
 
-    // Auto-play streams when they change
     const localVideoRef = React.useRef<HTMLVideoElement>(null);
     const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
+    const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -322,83 +359,138 @@ export const ActiveCallOverlay: React.FC<{
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
+            setStatus('Connected');
+            if (!timerRef.current) {
+                timerRef.current = setInterval(() => {
+                    setCallDuration(prev => prev + 1);
+                }, 1000);
+            }
+        } else {
+            setStatus('Calling...');
         }
     }, [remoteStream]);
 
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setCallDuration(0);
+            setStatus('Calling...');
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    }, [isOpen]);
+
+    const toggleMute = () => {
+        if (localStream) {
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = !track.enabled;
+            });
+            setIsMuted(!isMuted);
+        }
+    };
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
 
     if (!isOpen) return null;
 
+    const displayStatus = status === 'Connected' ? formatDuration(callDuration) : status;
+
     return (
-        <div className="fixed inset-0 z-[10000] bg-slate-950 flex flex-col">
-            {/* Header */}
-            <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-20 bg-gradient-to-b from-black/80 to-transparent">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-white font-bold border border-white/10">
-                        {callerName.charAt(0)}
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-white shadow-sm">{callerName}</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span className="text-emerald-400 text-sm font-medium tracking-wide">Connected</span>
+        <div className="fixed inset-0 z-[10000] flex flex-col animate-in fade-in duration-300">
+            {/* Background */}
+            {callType === 'VIDEO' && remoteStream ? (
+                <div className="absolute inset-0">
+                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    {localStream && (
+                        <div className="absolute top-20 right-6 w-32 h-48 bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20">
+                            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100" />
                         </div>
-                    </div>
+                    )}
                 </div>
-                <div className="px-4 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
-                    <span className="text-white/80 font-mono text-sm">00:00</span>
-                </div>
-            </div>
+            ) : (
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900" />
+            )}
 
-            {/* Main Video Area (Remote) */}
-            <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-hidden">
-                {remoteStream ? (
-                    <video
-                        ref={remoteVideoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <div className="flex flex-col items-center gap-4 animate-pulse">
-                        <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center">
-                            <span className="text-4xl">Waiting...</span>
+            {/* Audio element */}
+            {callType === 'AUDIO' && remoteStream && (
+                <audio ref={(el) => { if (el) el.srcObject = remoteStream }} autoPlay />
+            )}
+
+            {/* Top Content */}
+            <div className="relative z-10 flex-1 flex flex-col items-center pt-20 px-8">
+                <div className="flex items-center gap-2 mb-6">
+                    <svg className="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                    </svg>
+                    <span className="text-white/80 text-sm font-medium">{displayStatus}</span>
+                </div>
+
+                <h1 className="text-5xl font-bold text-white tracking-tight mb-3 text-center">{callerName}</h1>
+                <p className="text-white/60 text-lg tracking-wider">{callType === 'VIDEO' ? 'Video Call' : 'Voice Call'}</p>
+
+                {callType === 'AUDIO' && (
+                    <div className="mt-auto mb-auto">
+                        <div className="relative">
+                            {status === 'Calling...' && <div className="absolute inset-0 bg-blue-500/30 rounded-full animate-ping" />}
+                            <div className="w-48 h-48 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-2xl border-4 border-white/20">
+                                <span className="text-7xl font-bold text-white">{callerName.charAt(0).toUpperCase()}</span>
+                            </div>
                         </div>
-                        <p className="text-slate-500">Connecting video...</p>
                     </div>
                 )}
             </div>
 
-            {/* PIP Video Area (Local) */}
-            <div className="absolute top-24 right-6 w-32 h-48 bg-slate-800 rounded-2xl border-2 border-white/20 shadow-2xl overflow-hidden z-30">
-                {localStream ? (
-                    <video
-                        ref={localVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover transform -scale-x-100"
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-xs text-slate-500">
-                        No Camera
-                    </div>
-                )}
-            </div>
+            {/* Bottom Controls */}
+            <div className="relative z-20 bg-slate-900/95 backdrop-blur-xl rounded-t-3xl pt-6 pb-8 px-6">
+                <div className="flex justify-around mb-8">
+                    <button className="flex flex-col items-center gap-2 group">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center group-active:scale-95 transition-transform">
+                            <Grid size={24} className="text-white" />
+                        </div>
+                        <span className="text-xs text-white/70 font-medium">Keypad</span>
+                    </button>
 
-            {/* Controls */}
-            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-8 z-20">
-                <button className="p-4 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all">
-                    <Zap size={24} />
-                </button>
-                <button
-                    onClick={onEndCall}
-                    className="p-6 bg-rose-500 hover:bg-rose-600 rounded-full text-white shadow-lg shadow-rose-500/40 transition-all hover:scale-110 active:scale-95"
-                >
-                    <Phone size={32} className="rotate-[135deg]" />
-                </button>
-                <button className="p-4 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all">
-                    <MessageCircle size={24} />
-                </button>
+                    <button onClick={toggleMute} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center group-active:scale-95 transition-all ${isMuted ? 'bg-white' : 'bg-slate-800'}`}>
+                            {isMuted ? <MicOff size={24} className="text-slate-900" /> : <Mic size={24} className="text-white" />}
+                        </div>
+                        <span className="text-xs text-white/70 font-medium">{isMuted ? 'Unmute' : 'Mute'}</span>
+                    </button>
+
+                    <button onClick={() => setIsSpeaker(!isSpeaker)} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center group-active:scale-95 transition-all ${isSpeaker ? 'bg-white' : 'bg-slate-800'}`}>
+                            <Volume2 size={24} className={isSpeaker ? 'text-slate-900' : 'text-white'} />
+                        </div>
+                        <span className="text-xs text-white/70 font-medium">Speaker</span>
+                    </button>
+
+                    <button className="flex flex-col items-center gap-2 group">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center group-active:scale-95 transition-transform">
+                            <MoreVertical size={24} className="text-white" />
+                        </div>
+                        <span className="text-xs text-white/70 font-medium">More</span>
+                    </button>
+                </div>
+
+                <div className="flex justify-center">
+                    <button onClick={onEndCall} className="w-56 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-red-500/40">
+                        <Phone size={28} className="text-white rotate-[135deg]" />
+                    </button>
+                </div>
             </div>
         </div>
     );
