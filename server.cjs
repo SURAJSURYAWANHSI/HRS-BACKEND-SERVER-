@@ -416,20 +416,45 @@ const startEmailListener = async () => {
                         return;
                     }
 
-                    // Safe Access to From Address
-                    const fromEmail = mail.from?.value?.[0]?.address;
+                    // Debug Logging for Email Structure
+                    console.log('[Email Debug] From Structure:', JSON.stringify(mail.from));
+
+                    // Enhanced Safe Access to From Address
+                    let fromEmail = mail.from?.value?.[0]?.address;
+                    if (!fromEmail && mail.from?.text) {
+                        const match = mail.from.text.match(/<(.+)>/);
+                        fromEmail = match ? match[1] : mail.from.text;
+                    }
+
                     const subject = mail.subject || 'No Subject';
 
                     if (!fromEmail) {
-                        console.warn('[Email] Skipping email with no valid sender.');
+                        console.warn('[Email] Skipping email with no valid sender. Raw From:', mail.from);
                         try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
                         return;
                     }
 
                     console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
 
-                    // Logic: Reply to everything for now (or filter by subject 'Order')
-                    await sendAutoReply(fromEmail, subject);
+                    // User's Professional Template
+                    const emailBody = `Dear Customer,
+
+Thank you for choosing our company and placing your order with us.
+
+We are pleased to inform you that your order has been **successfully received and automatically accepted**. Our team has started processing it and will ensure timely completion as per the job requirements.
+
+We truly appreciate your trust in our services. We are continuously working to improve the quality of our work and provide you with the best possible experience.
+
+If you have any questions or need further assistance, please feel free to contact us. We will be happy to help.
+
+Thank you for looking to our company. We look forward to working with you.
+
+Best regards,
+
+HRS Engineering & Power Solutions Pvt. Ltd.
+ravi.salve@hrsengineering.in`;
+
+                    await sendAutoReply(fromEmail, subject, emailBody);
 
                     // Mark as SEEN
                     try {
