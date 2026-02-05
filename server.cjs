@@ -343,7 +343,7 @@ const SMTP_CONFIG = {
     }
 };
 
-const sendAutoReply = async (toEmail, originalSubject) => {
+const sendAutoReply = async (toEmail, originalSubject, customBody) => {
     if (EMAIL_CONFIG.user.includes('YOUR_EMAIL')) {
         console.log('[Email] Auto-reply skipped. Credentials not configured.');
         return;
@@ -353,10 +353,10 @@ const sendAutoReply = async (toEmail, originalSubject) => {
         const transporter = nodemailer.createTransport(SMTP_CONFIG);
 
         await transporter.sendMail({
-            from: `"ProTrack Admin" <${EMAIL_CONFIG.user}>`,
+            from: `"HRS Engineering & Power Solutions" <${EMAIL_CONFIG.user}>`,
             to: toEmail,
-            subject: `Re: ${originalSubject}`,
-            text: `Thank you for your order/inquiry. This is an automated response to confirm we have received your email. Our team will review it shortly.\n\nBest regards,\nProTrack Team`
+            subject: `Re: ${originalSubject} - Order Received`,
+            text: customBody
         });
 
         console.log(`[Email] Auto-reply sent to ${toEmail}`);
