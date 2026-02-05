@@ -23,6 +23,7 @@ const io = new Server(server, {
 // -- PERSISTENCE LAYER --
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'jobs.json');
+const EMAILS_FILE = path.join(DATA_DIR, 'emails.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -57,8 +58,31 @@ const saveJobs = (jobs) => {
     }
 };
 
+const loadEmails = () => {
+    try {
+        if (fs.existsSync(EMAILS_FILE)) {
+            const raw = fs.readFileSync(EMAILS_FILE, 'utf8');
+            const data = JSON.parse(raw);
+            console.log(`[Persistence] Loaded ${data.length} emails from disk.`);
+            return data;
+        }
+    } catch (err) {
+        console.error("[Persistence] Error loading emails:", err);
+    }
+    return [];
+};
+
+const saveEmails = (emails) => {
+    try {
+        fs.writeFileSync(EMAILS_FILE, JSON.stringify(emails, null, 2));
+    } catch (err) {
+        console.error("[Persistence] Error saving emails:", err);
+    }
+};
+
 // GLOBAL STATE (Source of Truth)
 let globalJobs = loadJobs();
+let globalEmails = loadEmails();
 const userSockets = new Map(); // UserId -> SocketId
 
 // -- SOCKET EVENTS --
@@ -147,6 +171,11 @@ io.on('connection', (socket) => {
     socket.on('job:request_sync', () => {
         console.log(`Worker requested sync. Sending ${globalJobs.length} cached jobs.`);
         socket.emit('job:sync_all', globalJobs);
+    });
+
+    // Email Sync
+    socket.on('email:request_sync', () => {
+        socket.emit('email:sync_all', globalEmails);
     });
 
     // -- COMMUNICATION --
@@ -309,15 +338,6 @@ const sendPushNotification = async (token, title, body, data = {}) => {
     }
 };
 
-// -- INTERCEPT EVENTS FOR NOTIFICATIONS --
-// We use the same 'io' instance, but we need to hook into the events we previously defined.
-// Since we defined them inside the connection handler, we can't easily intercept them globally *unless* we refactor.
-// BUT: We can just listen to the global 'io' emission if we emit events using io.emit.
-// However, 'call:offer' uses socket.broadcast which doesn't trigger global io listener easily.
-// EASIER APPROACH: Middleware or function wrappers. For now, let's keep it simple and just add the logic inside the connection handler 
-// by replacing the loop above.
-// ACTUALLY: I will just Append the logic to the existing handler in the Replace Block to rewrite the end of the file properly.
-
 const PORT = 5000;
 
 // -- EMAIL AUTO-REPLY SYSTEM --
@@ -383,61 +403,75 @@ const startEmailListener = async () => {
         }
     };
 
-    try {
-        const connection = await imaps.connect(config);
-        console.log('[Email System] Connected to IMAP');
+    // RECONNECTION LOGIC WRAPPER
+    const runListener = async () => {
+        try {
+            console.log('[Email System] Connecting to IMAP...');
+            const connection = await imaps.connect(config);
+            console.log('[Email System] Connected to IMAP');
 
-        const openInbox = async () => {
-            await connection.openBox('INBOX');
+            connection.on('error', (err) => {
+                console.error('[Email System] Connection Error:', err);
+            });
 
-            // Search for UNSEEN messages
-            const searchCriteria = ['UNSEEN'];
-            const fetchOptions = {
-                bodies: ['HEADER', 'TEXT'],
-                markSeen: false
-            };
+            const openInbox = async () => {
+                try {
+                    await connection.openBox('INBOX');
 
-            const messages = await connection.search(searchCriteria, fetchOptions);
+                    // Search for UNSEEN messages
+                    const searchCriteria = ['UNSEEN'];
+                    const fetchOptions = {
+                        bodies: ['HEADER', 'TEXT'],
+                        markSeen: false
+                    };
 
-            if (messages.length > 0) {
-                console.log(`[Email System] Found ${messages.length} new emails.`);
-            }
+                    const messages = await connection.search(searchCriteria, fetchOptions);
 
-            for (const item of messages) {
-                const all = item.parts.find(part => part.which === 'TEXT');
-                const id = item.attributes.uid;
-                const idHeader = "Imap-Id: " + id + "\r\n";
-
-                simpleParser(idHeader + all.body, async (err, mail) => {
-                    if (err) {
-                        console.error('[Email] Parse error:', err);
-                        // Mark as seen to avoid infinite loop
-                        try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
-                        return;
+                    if (messages.length > 0) {
+                        console.log(`[Email System] Found ${messages.length} new emails.`);
                     }
 
-                    // Debug Logging for Email Structure
-                    console.log('[Email Debug] From Structure:', JSON.stringify(mail.from));
+                    for (const item of messages) {
+                        const all = item.parts.find(part => part.which === 'TEXT');
 
-                    // Enhanced Safe Access to From Address
-                    let fromEmail = mail.from?.value?.[0]?.address;
-                    if (!fromEmail && mail.from?.text) {
-                        const match = mail.from.text.match(/<(.+)>/);
-                        fromEmail = match ? match[1] : mail.from.text;
-                    }
+                        if (!all) {
+                            console.warn(`[Email] Skipping message ${item.attributes.uid}: No TEXT part found.`);
+                            continue;
+                        }
 
-                    const subject = mail.subject || 'No Subject';
+                        const id = item.attributes.uid;
+                        const idHeader = "Imap-Id: " + id + "\r\n";
 
-                    if (!fromEmail) {
-                        console.warn('[Email] Skipping email with no valid sender. Raw From:', mail.from);
-                        try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
-                        return;
-                    }
+                        simpleParser(idHeader + all.body, async (err, mail) => {
+                            if (err) {
+                                console.error('[Email] Parse error:', err);
+                                // Mark as seen to avoid infinite loop
+                                try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                                return;
+                            }
 
-                    console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
+                            // Debug Logging for Email Structure
+                            console.log('[Email Debug] From Structure:', JSON.stringify(mail.from));
 
-                    // User's Professional Template
-                    const emailBody = `Dear Customer,
+                            // Enhanced Safe Access to From Address
+                            let fromEmail = mail.from?.value?.[0]?.address;
+                            if (!fromEmail && mail.from?.text) {
+                                const match = mail.from.text.match(/<(.+)>/);
+                                fromEmail = match ? match[1] : mail.from.text;
+                            }
+
+                            const subject = mail.subject || 'No Subject';
+
+                            if (!fromEmail) {
+                                console.warn('[Email] Skipping email with no valid sender. Raw From:', mail.from);
+                                try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                                return;
+                            }
+
+                            console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
+
+                            // Professional Template
+                            const emailBody = `Dear Customer,
 
 Thank you for choosing our company and placing your order with us.
 
@@ -454,27 +488,60 @@ Best regards,
 HRS Engineering & Power Solutions Pvt. Ltd.
 ravi.salve@hrsengineering.in`;
 
-                    await sendAutoReply(fromEmail, subject, emailBody);
+                            await sendAutoReply(fromEmail, subject, emailBody);
 
-                    // Mark as SEEN
-                    try {
-                        await connection.addFlags(id, '\\Seen');
-                    } catch (e) {
-                        console.error('[Email] Failed to mark as seen:', e);
+                            // --- PERSIST AND BROADCAST EMAIL ---
+                            const newEmail = {
+                                id: `EMAIL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                                from: fromEmail,
+                                subject: subject,
+                                body: mail.text || mail.html || 'No Content',
+                                date: mail.date || new Date().toISOString(),
+                                isRead: false
+                            };
+
+                            globalEmails.unshift(newEmail);
+                            if (globalEmails.length > 100) globalEmails = globalEmails.slice(0, 100); // Keep last 100
+                            saveEmails(globalEmails);
+
+                            io.emit('email:receive', newEmail);
+                            console.log(`[Email System] Email saved and broadcasted: ${newEmail.id}`);
+                            // -----------------------------------
+
+                            // Mark as SEEN
+                            try {
+                                await connection.addFlags(id, '\\Seen');
+                            } catch (e) {
+                                console.error('[Email] Failed to mark as seen:', e);
+                            }
+                        });
                     }
-                });
-            }
-        };
+                } catch (err) {
+                    console.error('[Email System] Fetch Error:', err);
+                }
+            };
 
-        // Initial check
-        openInbox();
+            // Initial check
+            openInbox();
 
-        // Poll every 2 minutes
-        setInterval(openInbox, 120 * 1000);
+            // Poll every 2 minutes
+            const intervalId = setInterval(openInbox, 120 * 1000);
 
-    } catch (err) {
-        console.error('[Email System] Connection error:', err.message);
-    }
+            // Handle connection close to clear interval
+            connection.on('end', () => {
+                console.warn('[Email System] Connection ended. Clearing interval.');
+                clearInterval(intervalId);
+                setTimeout(runListener, 30000);
+            });
+
+        } catch (err) {
+            console.error('[Email System] Connection error:', err.message);
+            // Retry in 30s
+            setTimeout(runListener, 30000);
+        }
+    };
+
+    runListener();
 };
 
 

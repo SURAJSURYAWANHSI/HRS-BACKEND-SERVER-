@@ -212,6 +212,19 @@ export const Header: React.FC<HeaderProps> = ({
                                             </button>
 
                                             <button
+                                                onClick={() => { setIsProfileOpen(false); setCurrentView({ type: 'EMAILS' }); }}
+                                                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
+                                                    <Megaphone size={16} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-xs font-bold text-slate-900 dark:text-white">Inbox / Mails</p>
+                                                    <p className="text-[9px] text-slate-400">Customer Inquiries</p>
+                                                </div>
+                                            </button>
+
+                                            <button
                                                 onClick={() => { setIsProfileOpen(false); setCurrentView({ type: 'ANNOUNCEMENTS' }); }}
                                                 className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
                                             >

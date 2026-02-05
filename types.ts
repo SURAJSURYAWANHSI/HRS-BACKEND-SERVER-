@@ -317,6 +317,16 @@ export interface ProductionReport {
   pendingJobs: number;
 }
 
+// Email System
+export interface Email {
+  id: string;
+  from: string;
+  subject: string;
+  body: string;
+  date: string;
+  isRead: boolean;
+}
+
 // Extended Worker with additional fields
 export interface ExtendedWorker extends Worker {
   email?: string;

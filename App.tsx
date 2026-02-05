@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { socketService } from './services/socket';
-import { Job, Worker, JobStage, RejectionReason, Notification, Announcement, InventoryItem, Equipment, Shift } from './types';
+import { Job, Worker, JobStage, RejectionReason, Notification, Announcement, InventoryItem, Equipment, Shift, Email } from './types';
 import { STAGE_LABELS, DEFAULT_DESIGN_SUBTASKS } from './constants';
 import {
     Loader2, Database, LogOut, LayoutDashboard, Plus, Search,
@@ -29,6 +29,7 @@ import { InventoryTracker } from './components/admin/views/InventoryTracker';
 import { EquipmentStatusView } from './components/admin/views/EquipmentStatusView';
 import { ShiftScheduler } from './components/admin/views/ShiftScheduler';
 import { AnnouncementBoard } from './components/admin/widgets/AnnouncementBoard';
+import { EmailInbox } from './components/admin/views/EmailInbox';
 
 // Notification System
 import { ToastProvider, useToast, IncomingCallOverlay, ActiveCallOverlay, toast } from './components/notifications/ToastSystem';
@@ -60,7 +61,9 @@ type ViewState =
     | { type: 'INVENTORY' }
     | { type: 'EQUIPMENT' }
     | { type: 'SHIFTS' }
-    | { type: 'ANNOUNCEMENTS' };
+    | { type: 'SHIFTS' }
+    | { type: 'ANNOUNCEMENTS' }
+    | { type: 'EMAILS' };
 
 const App: React.FC = () => {
     // -- GLOBAL STATE --
@@ -84,6 +87,7 @@ const App: React.FC = () => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [shifts, setShifts] = useState<Shift[]>([]);
+    const [emails, setEmails] = useState<Email[]>([]);
 
     // Feature Handlers
     const handleAddAnnouncement = (announcement: Omit<Announcement, 'id' | 'timestamp'>) => {
@@ -213,13 +217,18 @@ const App: React.FC = () => {
 
     // -- INIT --
     useEffect(() => {
-        const savedJobs = localStorage.getItem('hrs_jobs_v5');
-        if (savedJobs) {
-            setJobs(JSON.parse(savedJobs));
-        } else {
-            // Start with empty state for Production
+        try {
+            const savedJobs = localStorage.getItem('hrs_jobs_v5');
+            if (savedJobs) {
+                setJobs(JSON.parse(savedJobs));
+            } else {
+                setJobs([]);
+            }
+        } catch (e) {
+            console.error("Failed to load jobs from storage", e);
             setJobs([]);
         }
+
         document.documentElement.classList.add('dark'); // Force Dark Mode for now
 
         // Connect to Real-Time Server
@@ -236,8 +245,14 @@ const App: React.FC = () => {
             const currentJobs = localStorage.getItem('hrs_jobs_v5');
             if (currentJobs) {
                 console.log("Connected! Auto-Syncing all jobs to server...");
-                socketService.sendMessage('job:sync_all_from_admin', JSON.parse(currentJobs));
+                try {
+                    socketService.sendMessage('job:sync_all_from_admin', JSON.parse(currentJobs));
+                } catch (e) {
+                    console.error("Sync: Failed to parse jobs", e);
+                }
             }
+            // Request Emails
+            socketService.sendMessage('email:request_sync', {});
         });
 
         return () => socketService.disconnect();
@@ -307,16 +322,31 @@ const App: React.FC = () => {
             }
         };
 
+        const handleEmailReceive = (email: Email) => {
+            console.log("Received Email:", email);
+            setEmails(prev => [email, ...prev]);
+            toast.message(`📧 New Email from ${email.from.split('<')[0]}`, email.subject);
+        };
+
+        const handleEmailSync = (syncedEmails: Email[]) => {
+            console.log("Synced Emails:", syncedEmails.length);
+            setEmails(syncedEmails);
+        };
+
         socketService.onMessage('job:update', handleJobUpdate);
         socketService.onMessage('job:new', handleNewJob);
         socketService.onMessage('message:receive', handleGlobalMessage);
         socketService.onMessage('announcement:receive', handleAnnouncementReceive);
+        socketService.onMessage('email:receive', handleEmailReceive);
+        socketService.onMessage('email:sync_all', handleEmailSync);
 
         return () => {
             socketService.off('job:update', handleJobUpdate);
             socketService.off('job:new', handleNewJob);
             socketService.off('message:receive', handleGlobalMessage);
             socketService.off('announcement:receive', handleAnnouncementReceive);
+            socketService.off('email:receive', handleEmailReceive);
+            socketService.off('email:sync_all', handleEmailSync);
         };
     }, [currentView, showFloatingChat]);
 
@@ -517,6 +547,13 @@ const App: React.FC = () => {
                                         isAdmin={true}
                                     />
                                 </div>
+                            )}
+
+                            {currentView.type === 'EMAILS' && (
+                                <EmailInbox
+                                    emails={emails}
+                                    onRefresh={() => socketService.sendMessage('email:request_sync', {})}
+                                />
                             )}
                         </Suspense>
                     </main>
