@@ -450,14 +450,9 @@ const startEmailListener = async () => {
 
                         const id = item.attributes.uid;
 
-                        // Parse the FULL email source (headers + text/html)
-                        simpleParser(fullPart.body, async (err, mail) => {
-                            if (err) {
-                                console.error('[Email] Parse error:', err);
-                                // Mark as seen to avoid infinite loop
-                                try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
-                                return;
-                            }
+                        try {
+                            // Parse the FULL email source (headers + text/html) - PROMISE VERSION
+                            const mail = await simpleParser(fullPart.body);
 
                             // Debug Logging for Email Structure
                             console.log('[Email Debug] From Structure:', JSON.stringify(mail.from));
@@ -474,7 +469,7 @@ const startEmailListener = async () => {
                             if (!fromEmail) {
                                 console.warn('[Email] Skipping email with no valid sender. Raw From:', mail.from);
                                 try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
-                                return;
+                                continue;
                             }
 
                             console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
@@ -482,20 +477,20 @@ const startEmailListener = async () => {
                             // Professional Template
                             const emailBody = `Dear Customer,
 
-Thank you for choosing our company and placing your order with us.
+                                Thank you for choosing our company and placing your order with us.
 
-We are pleased to inform you that your order has been **successfully received and automatically accepted**. Our team has started processing it and will ensure timely completion as per the job requirements.
+                                We are pleased to inform you that your order has been **successfully received and automatically accepted**. Our team has started processing it and will ensure timely completion as per the job requirements.
 
-We truly appreciate your trust in our services. We are continuously working to improve the quality of our work and provide you with the best possible experience.
+                                We truly appreciate your trust in our services. We are continuously working to improve the quality of our work and provide you with the best possible experience.
 
-If you have any questions or need further assistance, please feel free to contact us. We will be happy to help.
+                                If you have any questions or need further assistance, please feel free to contact us. We will be happy to help.
 
-Thank you for looking to our company. We look forward to working with you.
+                                Thank you for looking to our company. We look forward to working with you.
 
-Best regards,
+                                Best regards,
 
-HRS Engineering & Power Solutions Pvt. Ltd.
-ravi.salve@hrsengineering.in`;
+                                HRS Engineering & Power Solutions Pvt. Ltd.
+                                ravi.salve@hrsengineering.in`;
 
                             await sendAutoReply(fromEmail, subject, emailBody);
 
@@ -523,7 +518,10 @@ ravi.salve@hrsengineering.in`;
                             } catch (e) {
                                 console.error('[Email] Failed to mark as seen:', e);
                             }
-                        });
+                        } catch (parseErr) {
+                            console.error('[Email] Parse error:', parseErr);
+                            try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                        }
                     }
                 } catch (err) {
                     console.error('[Email System] Fetch Error:', err);
