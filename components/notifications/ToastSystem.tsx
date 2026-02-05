@@ -127,7 +127,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
     return (
         <div
             className={`
-                relative flex items-start gap-4 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl
+                relative flex items-start gap-4 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl overflow-hidden
                 ${config.bgColor}
                 transform transition-all duration-300 ease-out
                 ${isEntering ? 'translate-x-full opacity-0 scale-95' : 'translate-x-0 opacity-100 scale-100'}
@@ -149,17 +149,21 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
             {/* Content */}
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white">{toast.title}</p>
-                {toast.message && (
-                    <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{toast.message}</p>
-                )}
-                {toast.action && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); toast.action?.onClick(); handleClose(); }}
-                        className={`mt-2 text-xs font-bold ${config.color} hover:underline`}
-                    >
-                        {toast.action.label}
-                    </button>
-                )}
+                {
+                    toast.message && (
+                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{toast.message}</p>
+                    )
+                }
+                {
+                    toast.action && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); toast.action?.onClick(); handleClose(); }}
+                            className={`mt-2 text-xs font-bold ${config.color} hover:underline`}
+                        >
+                            {toast.action.label}
+                        </button>
+                    )
+                }
             </div>
 
             {/* Close button */}
@@ -171,16 +175,18 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
             </button>
 
             {/* Progress bar */}
-            {!toast.persistent && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 rounded-b-2xl overflow-hidden">
-                    <div
-                        className={`h-full ${config.color.replace('text-', 'bg-')} transition-all ease-linear`}
-                        style={{
-                            animation: `shrink ${toast.duration || 4000}ms linear forwards`
-                        }}
-                    />
-                </div>
-            )}
+            {
+                !toast.persistent && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 overflow-hidden">
+                        <div
+                            className={`h-full ${config.color.replace('text-', 'bg-')} transition-all ease-linear`}
+                            style={{
+                                animation: `shrink ${toast.duration || 4000}ms linear forwards`
+                            }}
+                        />
+                    </div>
+                )
+            }
         </div>
     );
 };
@@ -244,16 +250,21 @@ export const IncomingCallOverlay: React.FC<{
     if (!isVisible) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 flex items-center justify-center animate-in fade-in duration-300">
-            {/* Background animation */}
+        <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center animate-in fade-in duration-300">
+            {/* Dynamic Background */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px]">
-                    {[0, 1, 2].map((i) => (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black" />
+
+                {/* Animated Rings */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                    {[0, 1, 2, 3].map((i) => (
                         <div
                             key={i}
-                            className="absolute inset-0 rounded-full border border-emerald-500/20"
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-500/10"
                             style={{
-                                animation: `ping 2s cubic-bezier(0, 0, 0.2, 1) infinite`,
+                                width: `${(i + 1) * 300}px`,
+                                height: `${(i + 1) * 300}px`,
+                                animation: `ping ${3 + i}s cubic-bezier(0, 0, 0.2, 1) infinite`,
                                 animationDelay: `${i * 0.5}s`
                             }}
                         />
@@ -261,71 +272,87 @@ export const IncomingCallOverlay: React.FC<{
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="relative z-10 text-center">
-                {/* Caller Avatar with Ring */}
-                <div className="relative mx-auto mb-8 w-36 h-36">
-                    {/* Outer pulse */}
-                    <div className="absolute inset-0 -m-4 rounded-full bg-emerald-500/10 animate-pulse" />
+            {/* Content Container */}
+            <div className="relative z-10 flex flex-col items-center justify-between h-[80vh] w-full max-w-md px-6">
 
-                    {/* Border ring */}
-                    <div className="absolute inset-0 rounded-full border-4 border-emerald-500" />
-
-                    {/* Avatar */}
-                    <div className="absolute inset-1 bg-slate-800 rounded-full flex items-center justify-center">
-                        {callerAvatar ? (
-                            <img src={callerAvatar} alt={callerName} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            <span className="text-5xl font-bold text-white">{callerName.charAt(0).toUpperCase()}</span>
-                        )}
+                {/* Header Info */}
+                <div className="flex flex-col items-center pt-8">
+                    <div className="bg-slate-900/50 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 mb-8 shadow-xl">
+                        <p className="text-emerald-400 text-sm font-semibold tracking-wide flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                            INCOMING {callType} CALL
+                        </p>
                     </div>
 
-                    {/* Call type badge */}
-                    <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40">
-                        {callType === 'VIDEO' ? (
-                            <Video size={24} className="text-white" />
-                        ) : (
-                            <Phone size={24} className="text-white" />
-                        )}
-                    </div>
-                </div>
+                    {/* Caller Avatar */}
+                    <div className="relative mb-6 group">
+                        {/* Glow effect */}
+                        <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full animate-pulse" />
 
-                {/* Caller Info */}
-                <h2 className="text-4xl font-bold text-white mb-3">{callerName}</h2>
-                <p className="text-slate-400 text-lg mb-10 flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                    {callType === 'VIDEO' ? 'Incoming Video Call' : 'Incoming Voice Call'}
-                </p>
+                        <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-b from-slate-700 to-slate-900 shadow-2xl">
+                            <div className="w-full h-full rounded-full overflow-hidden border-4 border-slate-800 relative z-10 bg-slate-800">
+                                {callerAvatar ? (
+                                    <img src={callerAvatar} alt={callerName} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                                        <span className="text-6xl font-bold">{callerName.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                )}
+                            </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center justify-center gap-16">
-                    {/* Decline */}
-                    <button
-                        onClick={handleDecline}
-                        className="flex flex-col items-center gap-3 group"
-                    >
-                        <div className="w-18 h-18 p-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 group-hover:scale-110 group-active:scale-95 transition-transform">
-                            <Phone size={32} className="text-white rotate-[135deg]" />
+                            {/* Spinning ring */}
+                            <div className="absolute inset-0 rounded-full border-t-2 border-emerald-500 animate-spin opacity-50" style={{ animationDuration: '3s' }} />
                         </div>
-                        <span className="text-sm font-medium text-slate-400">Decline</span>
-                    </button>
 
-                    {/* Accept */}
-                    <button
-                        onClick={handleAccept}
-                        className="flex flex-col items-center gap-3 group"
-                    >
-                        <div className="w-20 h-20 p-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 group-hover:scale-110 group-active:scale-95 transition-transform animate-pulse">
+                        {/* Type Icon Badge */}
+                        <div className="absolute -bottom-2 right-2 w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 shadow-lg z-20">
                             {callType === 'VIDEO' ? (
-                                <Video size={36} className="text-white" />
+                                <Video size={20} className="text-emerald-400" />
                             ) : (
-                                <Phone size={36} className="text-white" />
+                                <Phone size={20} className="text-emerald-400" />
                             )}
                         </div>
-                        <span className="text-sm font-medium text-emerald-400">
-                            {callType === 'VIDEO' ? 'Video' : 'Answer'}
-                        </span>
-                    </button>
+                    </div>
+
+                    <h2 className="text-5xl font-black text-white tracking-tight text-center drop-shadow-2xl">{callerName}</h2>
+                    <p className="text-slate-400 mt-2 font-medium">ProTrack Workstation 1</p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="w-full pb-8">
+                    <div className="flex items-center justify-between px-8 gap-6">
+                        {/* Decline Button */}
+                        <button
+                            onClick={handleDecline}
+                            className="flex flex-col items-center gap-4 group flex-1"
+                        >
+                            <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500/50 flex items-center justify-center group-hover:bg-rose-600 group-hover:border-rose-600 group-hover:scale-110 group-active:scale-95 transition-all duration-300 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+                                <Phone size={32} className="text-rose-500 group-hover:text-white transition-colors rotate-[135deg]" />
+                            </div>
+                            <span className="text-sm font-bold text-slate-400 group-hover:text-rose-400 transition-colors uppercase tracking-wider">Decline</span>
+                        </button>
+
+                        {/* Accept Button */}
+                        <button
+                            onClick={handleAccept}
+                            className="flex flex-col items-center gap-4 group flex-1"
+                        >
+                            <div className="relative w-24 h-24">
+                                <span className="absolute inset-0 rounded-full border-2 border-emerald-500 opacity-20 animate-ping" />
+                                <span className="absolute inset-0 rounded-full border-2 border-emerald-500 opacity-20 animate-ping" style={{ animationDelay: '0.4s' }} />
+                                <div className="absolute inset-0 rounded-full bg-emerald-500 flex items-center justify-center group-hover:bg-emerald-400 group-hover:scale-105 group-active:scale-95 transition-all duration-300 shadow-[0_0_30px_rgba(16,185,129,0.4)]">
+                                    {callType === 'VIDEO' ? (
+                                        <Video size={40} className="text-white animate-pulse" />
+                                    ) : (
+                                        <Phone size={40} className="text-white animate-pulse" />
+                                    )}
+                                </div>
+                            </div>
+                            <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors uppercase tracking-wider mt-2">
+                                {callType === 'VIDEO' ? 'Join Video' : 'Answer'}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -424,14 +451,21 @@ export const ActiveCallOverlay: React.FC<{
             {callType === 'VIDEO' && remoteStream ? (
                 <div className="absolute inset-0">
                     <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                    {localStream && (
-                        <div className="absolute top-20 right-6 w-32 h-48 bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20">
-                            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100" />
-                        </div>
-                    )}
                 </div>
             ) : (
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900" />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center">
+                    <div className="text-white/20 flex flex-col items-center">
+                        <Video size={48} className="mb-2" />
+                        <p className="text-sm font-bold uppercase tracking-widest">Waiting for video...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Local Stream PIP - Always show if available and VIDEO mode */}
+            {callType === 'VIDEO' && localStream && (
+                <div className="absolute top-20 right-6 w-32 h-48 bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 z-50">
+                    <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover transform -scale-x-100" />
+                </div>
             )}
 
             {/* Audio element */}

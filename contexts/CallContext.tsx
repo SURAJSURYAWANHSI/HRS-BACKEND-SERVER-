@@ -140,18 +140,50 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             remoteSocketIdRef.current = data.senderId;
             notificationSound.playRingtone();
+
+            // Check if app is in background
+            try {
+                const { App } = await import('@capacitor/app');
+                const appState = await App.getState();
+                if (!appState.isActive) {
+                    console.log('[Admin CallContext] App is in background, scheduling notification');
+                    const { notificationService } = await import('../services/notificationService');
+                    notificationService.scheduleCallNotification(
+                        data.senderId,
+                        data.senderId
+                    );
+                }
+            } catch (e) {
+                console.warn('[Admin CallContext] Failed to check app state:', e);
+            }
         };
+
+        const handleNotificationCall = async (event: any) => {
+            console.log('[Admin CallContext] Notification tapped:', event.detail);
+            const { callId, callerName } = event.detail;
+            // If we have a pending offer matching this, we could auto-answer or just show UI
+            // The UI is already shown by state. This handler just ensures we are focused.
+            // Future: Auto-answer logic could go here
+        };
+
+        window.addEventListener('notification:call', handleNotificationCall);
 
         const handleAnswer = async (data: any) => {
             if (data.receiverId !== 'ADMIN') return;
 
             console.log('[Admin CallContext] Received answer:', data);
-            notificationSound.stop();
+            notificationSound.stop(); // Ensured stop on answer
             setIsCalling(false);
             setIsInCall(true);
 
             if (peerConnectionRef.current && data.answer) {
                 try {
+                    // WEBRTC STATE GUARD
+                    if (peerConnectionRef.current.signalingState !== 'have-local-offer') {
+                        console.warn(`[Admin CallContext] Cannot set remote answer in state: ${peerConnectionRef.current.signalingState}`);
+                        return;
+                    }
+
                     await peerConnectionRef.current.setRemoteDescription(
                         new RTCSessionDescription(data.answer)
                     );
@@ -194,6 +226,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketService.onMessage('call:offer', handleOffer);
         socketService.onMessage('call:answer', handleAnswer);
         socketService.onMessage('call:end', handleEnd);
+        socketService.onMessage('call:reject', handleEnd); // Handle reject same as end
         socketService.onMessage('call:ice-candidate', handleIceCandidate);
 
         // Cleanup on unmount
@@ -201,7 +234,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             socketService.off('call:offer', handleOffer);
             socketService.off('call:answer', handleAnswer);
             socketService.off('call:end', handleEnd);
+            socketService.off('call:reject', handleEnd);
             socketService.off('call:ice-candidate', handleIceCandidate);
+            window.removeEventListener('notification:call', handleNotificationCall);
         };
     }, [cleanupCall]);
 
@@ -215,7 +250,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
                 video: type === 'VIDEO'
             });
             console.log('[Admin CallContext] Got local stream');
@@ -260,7 +299,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setCallType(call.type);
 
             const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
                 video: call.type === 'VIDEO'
             });
             console.log('[Admin CallContext] Got local stream for answer');

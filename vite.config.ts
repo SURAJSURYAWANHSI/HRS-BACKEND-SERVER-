@@ -30,6 +30,19 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      sourcemap: false, // Disable source maps for production
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            ui: ['lucide-react'],
+            charts: ['recharts'],
+            utils: ['socket.io-client']
+          }
+        }
+      }
     }
   };
 });

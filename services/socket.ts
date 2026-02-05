@@ -11,7 +11,12 @@ class SocketService {
 
     connect() {
         if (!this.socket) {
-            this.socket = io(SOCKET_URL);
+            this.socket = io(SOCKET_URL, {
+                transports: ['websocket', 'polling'], // Prioritize WebSocket
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+            });
 
             this.socket.on('connect', () => {
                 console.log('Connected to WebSocket Server:', this.socket?.id);

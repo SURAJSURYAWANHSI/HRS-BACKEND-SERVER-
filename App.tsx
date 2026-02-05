@@ -92,7 +92,10 @@ const App: React.FC = () => {
             id: `ANN-${Date.now()}`,
             timestamp: Date.now()
         };
+        // Optimistic update
         setAnnouncements(prev => [newAnnouncement, ...prev]);
+        // Emit to server
+        socketService.sendMessage('announcement:send', newAnnouncement);
     };
 
     const handleDeleteAnnouncement = (id: string) => {
@@ -222,6 +225,12 @@ const App: React.FC = () => {
         // Connect to Real-Time Server
         socketService.connect();
 
+        // INIT NOTIFICATIONS
+        import('./services/notificationService').then(({ notificationService }) => {
+            notificationService.initialize();
+            notificationService.requestPermissions();
+        });
+
         // AUTO-SYNC: Send all current jobs to server to sync workers
         socketService.onConnect(() => {
             const currentJobs = localStorage.getItem('hrs_jobs_v5');
@@ -286,14 +295,28 @@ const App: React.FC = () => {
             }
         };
 
+        const handleAnnouncementReceive = (announcement: Announcement) => {
+            console.log("Received Announcement:", announcement);
+            setAnnouncements(prev => {
+                if (prev.some(a => a.id === announcement.id)) return prev;
+                return [announcement, ...prev];
+            });
+            // Show toast if another admin posted it
+            if (announcement.authorId !== currentUser?.id) {
+                toast.message(`📢 ${announcement.title}`, announcement.content);
+            }
+        };
+
         socketService.onMessage('job:update', handleJobUpdate);
         socketService.onMessage('job:new', handleNewJob);
         socketService.onMessage('message:receive', handleGlobalMessage);
+        socketService.onMessage('announcement:receive', handleAnnouncementReceive);
 
         return () => {
             socketService.off('job:update', handleJobUpdate);
             socketService.off('job:new', handleNewJob);
             socketService.off('message:receive', handleGlobalMessage);
+            socketService.off('announcement:receive', handleAnnouncementReceive);
         };
     }, [currentView, showFloatingChat]);
 

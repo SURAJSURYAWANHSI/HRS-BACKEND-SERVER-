@@ -152,6 +152,11 @@ io.on('connection', (socket) => {
         io.emit('message:receive', data);
     });
 
+    socket.on('message:like', (data) => {
+        console.log('Message Liked:', data);
+        io.emit('message:like', data);
+    });
+
     // -- CALLING & SIGNALING (WebRTC) --
 
     // Relay call offer to target (or broadcast if no target)

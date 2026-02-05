@@ -82,8 +82,8 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
 
     // Filter messages for selected worker
     const currentChat = messages.filter(m =>
-        (m.sender_id === 'ADMIN' && m.receiver_id === selectedWorker?.name) ||
-        (m.sender_id === selectedWorker?.name && m.receiver_id === 'ADMIN')
+        (m.sender_id === 'ADMIN' && m.receiver_id === selectedWorker?.id) ||
+        (m.sender_id === selectedWorker?.id && m.receiver_id === 'ADMIN')
     ).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
 
@@ -127,7 +127,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                         const msgData: Message = {
                             id: `MSG-${Date.now()}`,
                             sender_id: 'ADMIN',
-                            receiver_id: selectedWorker.name,
+                            receiver_id: selectedWorker.id,
                             content: 'Voice Note',
                             type: 'audio',
                             attachment_url: base64,
@@ -224,7 +224,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                 const msgData: Message = {
                     id: `MSG-${Date.now()}`,
                     sender_id: 'ADMIN',
-                    receiver_id: selectedWorker.name,
+                    receiver_id: selectedWorker.id,
                     content: 'Photo',
                     type: 'image',
                     attachment_url: base64,
@@ -256,7 +256,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                 const msgData: Message = {
                     id: `MSG-${Date.now()}-${Math.random()}`,
                     sender_id: 'ADMIN',
-                    receiver_id: selectedWorker.name,
+                    receiver_id: selectedWorker.id,
                     content: file.name,
                     type: 'image',
                     attachment_url: base64,
@@ -273,7 +273,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
 
     const initiateCall = async (type: 'audio' | 'video') => {
         if (!selectedWorker) return;
-        startCall(selectedWorker.name, type === 'video' ? 'VIDEO' : 'AUDIO');
+        startCall(selectedWorker.id, type === 'video' ? 'VIDEO' : 'AUDIO');
     };
 
 
@@ -287,7 +287,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
         const newMsg: Message = {
             id: `MSG-${Date.now()}`,
             sender_id: 'ADMIN',
-            receiver_id: selectedWorker.name,
+            receiver_id: selectedWorker.id,
             content: inputText.trim(),
             type: 'text',
             timestamp: Date.now(),
