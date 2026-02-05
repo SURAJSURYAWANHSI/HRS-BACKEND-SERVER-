@@ -411,11 +411,20 @@ const startEmailListener = async () => {
                 simpleParser(idHeader + all.body, async (err, mail) => {
                     if (err) {
                         console.error('[Email] Parse error:', err);
+                        // Mark as seen to avoid infinite loop
+                        try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
                         return;
                     }
 
-                    const fromEmail = mail.from.value[0].address;
-                    const subject = mail.subject;
+                    // Safe Access to From Address
+                    const fromEmail = mail.from?.value?.[0]?.address;
+                    const subject = mail.subject || 'No Subject';
+
+                    if (!fromEmail) {
+                        console.warn('[Email] Skipping email with no valid sender.');
+                        try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                        return;
+                    }
 
                     console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
 
@@ -423,7 +432,11 @@ const startEmailListener = async () => {
                     await sendAutoReply(fromEmail, subject);
 
                     // Mark as SEEN
-                    await connection.addFlags(id, '\\Seen');
+                    try {
+                        await connection.addFlags(id, '\\Seen');
+                    } catch (e) {
+                        console.error('[Email] Failed to mark as seen:', e);
+                    }
                 });
             }
         };
