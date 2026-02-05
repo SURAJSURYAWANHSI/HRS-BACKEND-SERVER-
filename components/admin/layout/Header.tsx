@@ -131,15 +131,34 @@ export const Header: React.FC<HeaderProps> = ({
                             {isProfileOpen && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                                    <div className="absolute right-0 top-full mt-3 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-4 flex flex-col max-h-[85vh] overflow-y-auto">
+                                    <div className="absolute right-0 top-full mt-3 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-4 flex flex-col max-h-[85vh] overflow-y-auto">
 
-                                        {/* User Info Section */}
-                                        <div className="p-4 text-center border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
-                                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl mx-auto mb-3">
-                                                <User size={28} />
+                                        {/* User Info & Main Inbox Action - Side by Side Header */}
+                                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl mb-2">
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.name}</h3>
+                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mt-0.5">Admin</span>
+
+                                                {/* Edit/View Profile Link placeholder if needed */}
+                                                <button className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mt-2 flex items-center gap-1 transition-colors">
+                                                    Manage Account
+                                                </button>
                                             </div>
-                                            <h3 className="text-base font-bold text-slate-900 dark:text-white">{currentUser?.name}</h3>
-                                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded text-[10px] font-bold uppercase tracking-wider">System Administrator</span>
+
+                                            {/* PROMINENT MAIL ACTION */}
+                                            <button
+                                                onClick={() => { setIsProfileOpen(false); setCurrentView({ type: 'EMAILS' }); }}
+                                                className="flex flex-col items-center justify-center w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all group"
+                                                title="Open Inbox"
+                                            >
+                                                <div className="relative">
+                                                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">
+                                                        <Megaphone size={16} />
+                                                    </div>
+                                                    {/* Optional unread badge logic could go here */}
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-wider">Inbox</span>
+                                            </button>
                                         </div>
 
                                         {/* Admin Tools Grid */}
@@ -211,18 +230,7 @@ export const Header: React.FC<HeaderProps> = ({
                                                 </div>
                                             </button>
 
-                                            <button
-                                                onClick={() => { setIsProfileOpen(false); setCurrentView({ type: 'EMAILS' }); }}
-                                                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
-                                            >
-                                                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
-                                                    <Megaphone size={16} />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="text-xs font-bold text-slate-900 dark:text-white">Inbox / Mails</p>
-                                                    <p className="text-[9px] text-slate-400">Customer Inquiries</p>
-                                                </div>
-                                            </button>
+                                            {/* (Removed Email Link here - Moved to Top) */}
 
                                             <button
                                                 onClick={() => { setIsProfileOpen(false); setCurrentView({ type: 'ANNOUNCEMENTS' }); }}

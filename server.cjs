@@ -420,8 +420,11 @@ const startEmailListener = async () => {
 
                     // Search for UNSEEN messages
                     const searchCriteria = ['UNSEEN'];
+
+                    // FETCH THE FULL BODY SO WE CAN PARSE HEADERS CORRECTLY
+                    // bodies: [''] fetches the entire raw email
                     const fetchOptions = {
-                        bodies: ['HEADER', 'TEXT'],
+                        bodies: [''],
                         markSeen: false
                     };
 
@@ -432,17 +435,18 @@ const startEmailListener = async () => {
                     }
 
                     for (const item of messages) {
-                        const all = item.parts.find(part => part.which === 'TEXT');
+                        // 'which' is empty string for the whole message
+                        const fullPart = item.parts.find(part => part.which === '');
 
-                        if (!all) {
-                            console.warn(`[Email] Skipping message ${item.attributes.uid}: No TEXT part found.`);
+                        if (!fullPart) {
+                            console.warn(`[Email] Skipping message ${item.attributes.uid}: No content found.`);
                             continue;
                         }
 
                         const id = item.attributes.uid;
-                        const idHeader = "Imap-Id: " + id + "\r\n";
 
-                        simpleParser(idHeader + all.body, async (err, mail) => {
+                        // Parse the FULL email source (headers + text/html)
+                        simpleParser(fullPart.body, async (err, mail) => {
                             if (err) {
                                 console.error('[Email] Parse error:', err);
                                 // Mark as seen to avoid infinite loop
