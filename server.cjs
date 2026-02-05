@@ -364,24 +364,29 @@ const SMTP_CONFIG = {
 };
 
 const sendAutoReply = async (toEmail, originalSubject, customBody) => {
+    console.log(`[Email Debug] sendAutoReply called for: ${toEmail}`);
+
     if (EMAIL_CONFIG.user.includes('YOUR_EMAIL')) {
         console.log('[Email] Auto-reply skipped. Credentials not configured.');
         return;
     }
 
     try {
+        console.log('[Email Debug] Creating transporter...');
         const transporter = nodemailer.createTransport(SMTP_CONFIG);
 
-        await transporter.sendMail({
+        console.log('[Email Debug] Sending mail...');
+        const info = await transporter.sendMail({
             from: `"HRS Engineering & Power Solutions" <${EMAIL_CONFIG.user}>`,
             to: toEmail,
             subject: `Re: ${originalSubject} - Order Received`,
             text: customBody
         });
 
-        console.log(`[Email] Auto-reply sent to ${toEmail}`);
+        console.log(`[Email] ✅ Auto-reply sent to ${toEmail}. MessageId: ${info.messageId}`);
     } catch (error) {
-        console.error('[Email] Failed to send auto-reply:', error);
+        console.error('[Email] ❌ Failed to send auto-reply:', error.message);
+        console.error('[Email] Full error:', error);
     }
 };
 
