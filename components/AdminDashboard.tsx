@@ -661,7 +661,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
         Promise.all(readers).then(() => {
             setJobs(prev => prev.map(j => {
                 if (j.id === id) {
-                    const updatedBlueprints = [...(j.blueprints || []), ...newImages];
+                    // Prepend new images so they appear first (Newest at Top)
+                    const updatedBlueprints = [...newImages, ...(j.blueprints || [])];
                     const updatedJob = { ...j, blueprints: updatedBlueprints, lastUpdated: Date.now() };
 
                     // Emit socket update
