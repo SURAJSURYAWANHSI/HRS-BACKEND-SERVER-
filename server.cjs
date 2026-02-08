@@ -398,16 +398,14 @@ const EMAIL_CONFIG = {
 // --- SINGLETON TRANSPORTER ---
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 587,
-    secure: false, // Upgrade later with STARTTLS
+    port: 465,
+    secure: true, // 🔥 IMPORTANT
     auth: {
         user: EMAIL_CONFIG.user,
         pass: EMAIL_CONFIG.password
-    },
-    tls: {
-        rejectUnauthorized: false
     }
 });
+
 
 // Spam Prevention
 const repliedSet = new Set();
