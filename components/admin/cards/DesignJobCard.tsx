@@ -12,9 +12,10 @@ interface DesignJobCardProps {
     onSkip?: (id: string, reason: string) => void;
     onDeleteJob?: (id: string) => void;
     onUpdateDesignSubTask?: (jobId: string, taskId: DesignSubTaskType, status: DesignSubTaskStatus) => void;
+    onViewDetails?: (job: Job) => void;
 }
 
-export const DesignJobCard: React.FC<DesignJobCardProps> = React.memo(({ job, onApproveSpec, onUploadBlueprint, onRemoveBlueprint, onSkip, onDeleteJob, onUpdateDesignSubTask }) => {
+export const DesignJobCard: React.FC<DesignJobCardProps> = React.memo(({ job, onApproveSpec, onUploadBlueprint, onRemoveBlueprint, onSkip, onDeleteJob, onUpdateDesignSubTask, onViewDetails }) => {
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isSkipping, setIsSkipping] = useState(false);
@@ -98,11 +99,23 @@ export const DesignJobCard: React.FC<DesignJobCardProps> = React.memo(({ job, on
                     <button
                         onClick={() => activeBlueprints.length > 0 && setFullScreenImage(activeBlueprints[0])}
                         disabled={activeBlueprints.length === 0}
-                        className="bg-purple-600 text-white p-2.5 rounded-lg hover:bg-purple-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md"
                         title="Preview Designs"
                     >
                         <Eye size={16} />
                     </button>
+                    {onViewDetails && (
+                        <button
+                            onClick={() => onViewDetails(job)}
+                            className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 p-2.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-md ml-2"
+                            title="View Process & Details"
+                        >
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                            <span className="sr-only">Details</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Main Content: Two Column Layout - Upload LEFT, Workflow RIGHT */}
@@ -136,13 +149,25 @@ export const DesignJobCard: React.FC<DesignJobCardProps> = React.memo(({ job, on
                         ) : (
                             <div className="grid grid-cols-2 gap-3">
                                 {activeBlueprints.map((blueprint, idx) => (
-                                    <div key={idx} className="relative group rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-700">
-                                        <img
-                                            src={blueprint}
-                                            alt={`Blueprint ${idx + 1}`}
-                                            className="w-full h-32 object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
-                                            onClick={() => setFullScreenImage(blueprint)}
-                                        />
+                                    <div key={idx} className="relative group rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+                                        {blueprint.match(/application\/pdf|pdf/i) ? (
+                                            <div
+                                                className="w-full h-32 flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                                onClick={() => window.open(blueprint, '_blank')}
+                                            >
+                                                <div className="bg-red-500/10 p-3 rounded-lg text-red-500 mb-2">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">PDF Document</span>
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={blueprint}
+                                                alt={`Blueprint ${idx + 1}`}
+                                                className="w-full h-32 object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
+                                                onClick={() => setFullScreenImage(blueprint)}
+                                            />
+                                        )}
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                             <button
                                                 onClick={() => setFullScreenImage(blueprint)}

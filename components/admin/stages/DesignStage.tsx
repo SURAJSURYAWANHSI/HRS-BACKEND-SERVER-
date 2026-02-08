@@ -12,6 +12,7 @@ interface DesignStageProps {
     onDeleteJob: (id: string) => void;
     onUpdateDesignSubTask: (jobId: string, taskId: DesignSubTaskType, status: DesignSubTaskStatus) => void;
     onNavigateToNewOrder: () => void;
+    onViewDetails: (job: Job) => void;
 }
 
 export const DesignStage: React.FC<DesignStageProps> = ({
@@ -22,7 +23,8 @@ export const DesignStage: React.FC<DesignStageProps> = ({
     onRemoveBlueprint,
     onDeleteJob,
     onUpdateDesignSubTask,
-    onNavigateToNewOrder
+    onNavigateToNewOrder,
+    onViewDetails
 }) => {
     // Toggle for History
     const [showHistory, setShowHistory] = React.useState(false);
@@ -100,6 +102,7 @@ export const DesignStage: React.FC<DesignStageProps> = ({
                                 onDeleteJob={onDeleteJob}
                                 onUpdateDesignSubTask={onUpdateDesignSubTask}
                                 onSkip={onSkip}
+                                onViewDetails={onViewDetails}
                             />
                         ))
                     )}
@@ -127,6 +130,7 @@ export const DesignStage: React.FC<DesignStageProps> = ({
                                 onApproveSpec={onApproveSpec}
                                 onDeleteJob={onDeleteJob}
                                 onUpdateDesignSubTask={onUpdateDesignSubTask}
+                                onViewDetails={onViewDetails}
                             // No skip needed for history
                             />
                         ))
@@ -152,6 +156,7 @@ export const DesignStage: React.FC<DesignStageProps> = ({
                             onDeleteJob={onDeleteJob}
                             onUpdateDesignSubTask={onUpdateDesignSubTask}
                             onSkip={onSkip}
+                            onViewDetails={onViewDetails}
                         // No skip/approve allowed in history (Card handles this logic via currentStage check)
                         />
                     </div>
