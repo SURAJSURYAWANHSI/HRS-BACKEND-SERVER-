@@ -61,6 +61,11 @@ export const DispatchJobCard: React.FC<DispatchJobCardProps> = React.memo(({
     const [dispatcherName, setDispatcherName] = useState(job.dispatcherName || '');
     const [isReady, setIsReady] = useState(!!job.vehicleNumber);
 
+    // Calculate Ready Quantity: Batches in DISPATCH stage (or Completed if waiting invoice)
+    const readyQty = job.batches
+        ? job.batches.filter(b => (b.stage === 'DISPATCH' && b.status !== 'REJECTED') || b.status === 'COMPLETED').reduce((acc, b) => acc + b.quantity, 0)
+        : job.totalQty; // Fallback for legacy jobs
+
     const dispatchStatus = job.dispatchStatus || 'PENDING';
     const statusInfo = getDispatchStatusInfo(job.dispatchStatus);
     const isDispatched = dispatchStatus !== 'PENDING';
@@ -74,13 +79,26 @@ export const DispatchJobCard: React.FC<DispatchJobCardProps> = React.memo(({
     };
 
     const handleReturn = () => {
-        const candidateBatch = job.batches?.find(b => b.status === 'COMPLETED' || b.status === 'PENDING' || b.status === 'IN_PROGRESS');
+        // Find a suitable batch to return from (Prioritize Completed/Dispatched ones)
+        const candidateBatch = job.batches?.find(b => b.status === 'COMPLETED' || b.status === 'PENDING' || b.status === 'IN_PROGRESS')
+            || job.batches?.[0]; // Fallback to first batch if specific one not found
+
         if (candidateBatch && returnQty > 0 && returnReason && returnOrigin) {
             onCustomerReturn(job.id, candidateBatch.id, returnQty, returnReason, returnOrigin);
+
+            // Show success feedback
+            window.dispatchEvent(new CustomEvent('admin:notification', {
+                detail: { message: "Return Processed Successfully", type: 'SUCCESS' }
+            }));
+
             setIsReturning(false);
             setReturnQty(0);
             setReturnReason('');
             setReturnOrigin('');
+        } else {
+            window.dispatchEvent(new CustomEvent('admin:notification', {
+                detail: { message: "Could not find valid batch for return or missing details.", type: 'ERROR' }
+            }));
         }
     };
 
@@ -372,8 +390,10 @@ export const DispatchJobCard: React.FC<DispatchJobCardProps> = React.memo(({
             {/* Details Grid */}
             <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 dark:bg-[#0F172A] rounded-[2rem] border border-slate-200 dark:border-slate-800">
                 <div>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Items</p>
-                    <p className="text-xl font-black text-slate-900 dark:text-white">{job.totalQty} <span className="text-[10px] text-slate-500">PCS</span></p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{isDispatched ? 'Dispatched Qty' : 'Ready to Dispatch'}</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">
+                        {readyQty} <span className="text-sm text-slate-400">/ {job.totalQty}</span> <span className="text-[10px] text-slate-500">PCS</span>
+                    </p>
                 </div>
                 <div>
                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{isDispatched ? 'Dispatched On' : 'Dispatch Due'}</p>
