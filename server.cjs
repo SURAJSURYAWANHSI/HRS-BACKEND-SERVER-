@@ -496,7 +496,15 @@ const startEmailListener = async () => {
                             continue;
                         }
 
-                        const id = item.attributes.uid;
+                        const uid = item.attributes.uid;
+                        const emailId = `EMAIL-${uid}`;
+
+                        // DEDUPLICATION CHECK
+                        if (globalEmails.some(e => e.id === emailId)) {
+                            console.log(`[Email] Skipping duplicate email UID: ${uid}`);
+                            try { await connection.addFlags(item.attributes.uid, '\\Seen'); } catch (e) { }
+                            continue;
+                        }
 
                         try {
                             // Parse the FULL email source (headers + text/html) - PROMISE VERSION
@@ -516,11 +524,18 @@ const startEmailListener = async () => {
 
                             if (!fromEmail) {
                                 console.warn('[Email] Skipping email with no valid sender. Raw From:', mail.from);
-                                try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                                try { await connection.addFlags(item.attributes.uid, '\\Seen'); } catch (e) { }
                                 continue;
                             }
 
                             console.log(`[Email] New mail from: ${fromEmail}, Subject: ${subject}`);
+
+                            // Mark as SEEN IMMEDIATELY to prevent loops
+                            try {
+                                await connection.addFlags(item.attributes.uid, '\\Seen');
+                            } catch (e) {
+                                console.error('[Email] Failed to mark as seen:', e);
+                            }
 
                             // Professional Template
                             const emailBody = `Dear Customer,
@@ -544,7 +559,7 @@ const startEmailListener = async () => {
 
                             // --- PERSIST AND BROADCAST EMAIL ---
                             const newEmail = {
-                                id: `EMAIL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                                id: emailId,
                                 from: fromEmail,
                                 subject: subject,
                                 body: mail.text || mail.html || 'No Content',
@@ -561,14 +576,9 @@ const startEmailListener = async () => {
                             // -----------------------------------
 
                             // Mark as SEEN
-                            try {
-                                await connection.addFlags(id, '\\Seen');
-                            } catch (e) {
-                                console.error('[Email] Failed to mark as seen:', e);
-                            }
                         } catch (parseErr) {
                             console.error('[Email] Parse error:', parseErr);
-                            try { await connection.addFlags(id, '\\Seen'); } catch (e) { }
+                            try { await connection.addFlags(item.attributes.uid, '\\Seen'); } catch (e) { }
                         }
                     }
                 } catch (err) {
