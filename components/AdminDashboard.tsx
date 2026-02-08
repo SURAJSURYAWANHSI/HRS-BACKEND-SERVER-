@@ -586,7 +586,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
     const handleCustomerReturn = (jobId: string, batchId: string, returnQty: number, reason: string, originStage: string) => {
         setJobs(prev => prev.map(j => {
             if (j.id === jobId) {
-                const returnedJob = WorkflowEngine.handleCustomerReturn(j, batchId, returnQty, reason, originStage as any, 'Admin');
+                let jobToProcess = j;
+                let targetBatchId = batchId;
+
+                // Handle Legacy Jobs (No Batches) -> Create Initial Batch First
+                if (batchId === 'FORCE_CREATE') {
+                    if (!j.batches || j.batches.length === 0) {
+                        const newBatches = WorkflowEngine.createInitialBatch(j);
+                        jobToProcess = { ...j, batches: newBatches };
+                        targetBatchId = newBatches[0].id; // Use the newly created batch
+                    } else {
+                        // Job has batches but frontend passed FORCE_CREATE (maybe couldn't find active?)
+                        // Default to the last completed batch or first batch
+                        targetBatchId = j.batches.find(b => b.status === 'COMPLETED')?.id || j.batches[0].id;
+                    }
+                }
+
+                const returnedJob = WorkflowEngine.handleCustomerReturn(jobToProcess, targetBatchId, returnQty, reason, originStage as any, 'Admin');
 
                 // EMIT SOCKET UPDATE for Worker sync
                 socketService.sendMessage('job:update_status', {
@@ -599,6 +615,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
             }
             return j;
         }));
+
+        // Auto-navigate to Returns View
+        setView('RETURNS');
     };
 
     const handleReprocessReturn = (jobId: string, batchId: string, targetStage: JobStage) => {
