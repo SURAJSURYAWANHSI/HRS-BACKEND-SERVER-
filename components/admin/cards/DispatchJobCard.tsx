@@ -83,22 +83,21 @@ export const DispatchJobCard: React.FC<DispatchJobCardProps> = React.memo(({
         const candidateBatch = job.batches?.find(b => b.status === 'COMPLETED' || b.status === 'PENDING' || b.status === 'IN_PROGRESS')
             || job.batches?.[0]; // Fallback to first batch if specific one not found
 
-        if (candidateBatch && returnQty > 0 && returnReason && returnOrigin) {
-            onCustomerReturn(job.id, candidateBatch.id, returnQty, returnReason, returnOrigin);
+        // Use batch ID if found, otherwise 'FORCE_CREATE' for legacy jobs
+        const batchId = candidateBatch?.id || 'FORCE_CREATE';
+
+        if (returnQty > 0 && returnReason && returnOrigin) {
+            onCustomerReturn(job.id, batchId, returnQty, returnReason, returnOrigin);
 
             // Show success feedback
             window.dispatchEvent(new CustomEvent('admin:notification', {
-                detail: { message: "Return Processed Successfully", type: 'SUCCESS' }
+                detail: { message: "Return Processed. Redirecting...", type: 'SUCCESS' }
             }));
 
             setIsReturning(false);
             setReturnQty(0);
             setReturnReason('');
             setReturnOrigin('');
-        } else {
-            window.dispatchEvent(new CustomEvent('admin:notification', {
-                detail: { message: "Could not find valid batch for return or missing details.", type: 'ERROR' }
-            }));
         }
     };
 
