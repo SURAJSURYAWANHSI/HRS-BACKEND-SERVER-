@@ -564,13 +564,6 @@ const startEmailListener = async () => {
                                 console.error('[Email] Failed to mark as seen:', e);
                             }
 
-                            // --- AUTO REPLY LOGIC ---
-                            if (shouldAutoReply(mail)) {
-                                await sendAutoReply(fromEmail);
-                            } else {
-                                console.log(`[Email] Auto-reply skipped for ${fromEmail}`);
-                            }
-
                             // --- PERSIST AND BROADCAST EMAIL ---
                             const newEmail = {
                                 id: emailId,
@@ -588,6 +581,14 @@ const startEmailListener = async () => {
                             io.emit('email:receive', newEmail);
                             console.log(`[Email System] Email saved and broadcasted: ${newEmail.id}`);
                             // -----------------------------------
+
+                            // --- AUTO REPLY LOGIC ---
+                            if (shouldAutoReply(mail)) {
+                                // Run purely async to not block loop
+                                sendAutoReply(fromEmail).catch(err => console.error('[Email] Auto-reply background error:', err));
+                            } else {
+                                console.log(`[Email] Auto-reply skipped for ${fromEmail}`);
+                            }
 
                             // Mark as SEEN
                         } catch (parseErr) {
