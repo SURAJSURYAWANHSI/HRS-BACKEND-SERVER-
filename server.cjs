@@ -429,20 +429,25 @@ const shouldAutoReply = (mail) => {
     }
 
     // ❌ Prevent spam loops (1 hour cooldown)
-    if (repliedSet.has(from)) {
-        console.log("⛔ Auto-reply blocked (spam cooldown)");
+    // DISABLED FOR TESTING
+    /* if (repliedSet.has(from)) {
+        console.log("⛔ Auto-reply blocked (spam cooldown) - skipping for " + from);
         return false;
-    }
+    } */
 
+    console.log(`[Email Debug] shouldAutoReply: TRUE for ${from}`);
     return true;
 };
 
 const sendAutoReply = async (toEmail) => {
-    // Add to spam set
+    console.log(`[Email Debug] sendAutoReply: Starting for ${toEmail}`);
+
+    // Add to spam set (keep tracking but don't block for now)
     repliedSet.add(toEmail.toLowerCase());
-    setTimeout(() => repliedSet.delete(toEmail.toLowerCase()), 60 * 60 * 1000); // 1 hour
+    setTimeout(() => repliedSet.delete(toEmail.toLowerCase()), 60 * 1000); // 1 minute only
 
     try {
+        console.log(`[Email Debug] Transporter sending to ${toEmail}...`);
         await transporter.sendMail({
             from: `"HRS Engineering" <${EMAIL_CONFIG.user}>`,
             to: toEmail,
