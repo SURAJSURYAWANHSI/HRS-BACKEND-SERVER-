@@ -403,7 +403,8 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: EMAIL_CONFIG.user,
         pass: EMAIL_CONFIG.password
-    }
+    },
+    family: 4
 });
 
 
