@@ -111,6 +111,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
             }));
         });
 
+        // New Job Created
+        socketService.onMessage('job:new', (newJob: Job) => {
+            setJobs(prev => {
+                // Avoid duplicates
+                if (prev.some(j => j.id === newJob.id)) return prev;
+                playNotificationSound();
+                window.dispatchEvent(new CustomEvent('admin:notification', {
+                    detail: { message: `New Job Created: ${newJob.codeNo}`, type: 'SUCCESS' }
+                }));
+                return [newJob, ...prev];
+            });
+        });
+
         // Job Updates
         socketService.onMessage('job:update', (data: any) => {
             const { jobId, updates } = data;
