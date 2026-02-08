@@ -388,51 +388,80 @@ const { simpleParser } = require('mailparser');
 // ⚠️ CONFIGURE YOUR EMAIL HERE ⚠️
 const EMAIL_CONFIG = {
     user: 'sas.automation.pvt.ltd.projects@gmail.com',
-    password: 'nabjmchykkdxljjy',
+    password: 'nabjmchykkdxljjy', // app password
     host: 'imap.gmail.com',
     port: 993,
     tls: true,
     authTimeout: 3000
 };
 
-const SMTP_CONFIG = {
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
+// --- SINGLETON TRANSPORTER ---
+const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // Upgrade later with STARTTLS
     auth: {
         user: EMAIL_CONFIG.user,
         pass: EMAIL_CONFIG.password
     },
-    connectionTimeout: 20000, // 20s
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
-    family: 4 // Force IPv4 to avoid ENETUNREACH on IPv6
-};
+    tls: {
+        rejectUnauthorized: false
+    }
+});
 
-const sendAutoReply = async (toEmail, originalSubject, customBody) => {
-    console.log(`[Email Debug] sendAutoReply called for: ${toEmail}`);
+// Spam Prevention
+const repliedSet = new Set();
 
-    if (EMAIL_CONFIG.user.includes('YOUR_EMAIL')) {
-        console.log('[Email] Auto-reply skipped. Credentials not configured.');
-        return;
+const shouldAutoReply = (mail) => {
+    const from = mail.from?.value?.[0]?.address?.toLowerCase();
+    const myEmail = EMAIL_CONFIG.user.toLowerCase();
+
+    if (!from) return false;
+
+    // ❌ stop replying to yourself
+    if (from === myEmail) {
+        console.log("⛔ Auto-reply blocked (self email)");
+        return false;
     }
 
-    try {
-        console.log('[Email Debug] Creating transporter...');
-        const transporter = nodemailer.createTransport(SMTP_CONFIG);
+    // ❌ ignore auto-generated emails
+    if (mail.headers && mail.headers.get && mail.headers.get("auto-submitted")) {
+        console.log("⛔ Auto-generated email ignored");
+        return false;
+    }
 
-        console.log('[Email Debug] Sending mail...');
-        const info = await transporter.sendMail({
-            from: `"HRS Engineering & Power Solutions" <${EMAIL_CONFIG.user}>`,
+    // ❌ Prevent spam loops (1 hour cooldown)
+    if (repliedSet.has(from)) {
+        console.log("⛔ Auto-reply blocked (spam cooldown)");
+        return false;
+    }
+
+    return true;
+};
+
+const sendAutoReply = async (toEmail) => {
+    // Add to spam set
+    repliedSet.add(toEmail.toLowerCase());
+    setTimeout(() => repliedSet.delete(toEmail.toLowerCase()), 60 * 60 * 1000); // 1 hour
+
+    try {
+        await transporter.sendMail({
+            from: `"HRS Engineering" <${EMAIL_CONFIG.user}>`,
             to: toEmail,
-            subject: `Re: ${originalSubject} - Order Received`,
-            text: customBody
+            subject: "Order Received - HRS Engineering",
+            text: `Dear Customer,
+
+Thank you for choosing HRS Engineering.
+
+We have received your email/order. Our team is reviewing it and will process it shortly.
+
+Best regards,
+HRS Engineering Team`
         });
 
-        console.log(`[Email] ✅ Auto-reply sent to ${toEmail}. MessageId: ${info.messageId}`);
-    } catch (error) {
-        console.error('[Email] ❌ Failed to send auto-reply:', error.message);
-        console.error('[Email] Full error:', error);
+        console.log("✅ Auto-reply sent to", toEmail);
+    } catch (err) {
+        console.error("❌ Failed to send auto-reply:", err.message);
     }
 };
 
@@ -537,25 +566,12 @@ const startEmailListener = async () => {
                                 console.error('[Email] Failed to mark as seen:', e);
                             }
 
-                            // Professional Template
-                            const emailBody = `Dear Customer,
-
-                                Thank you for choosing our company and placing your order with us.
-
-                                We are pleased to inform you that your order has been **successfully received and automatically accepted**. Our team has started processing it and will ensure timely completion as per the job requirements.
-
-                                We truly appreciate your trust in our services. We are continuously working to improve the quality of our work and provide you with the best possible experience.
-
-                                If you have any questions or need further assistance, please feel free to contact us. We will be happy to help.
-
-                                Thank you for looking to our company. We look forward to working with you.
-
-                                Best regards,
-
-                                HRS Engineering & Power Solutions Pvt. Ltd.
-                                ravi.salve@hrsengineering.in`;
-
-                            await sendAutoReply(fromEmail, subject, emailBody);
+                            // --- AUTO REPLY LOGIC ---
+                            if (shouldAutoReply(mail)) {
+                                await sendAutoReply(fromEmail);
+                            } else {
+                                console.log(`[Email] Auto-reply skipped for ${fromEmail}`);
+                            }
 
                             // --- PERSIST AND BROADCAST EMAIL ---
                             const newEmail = {
