@@ -119,7 +119,8 @@ export const DesignJobCard: React.FC<DesignJobCardProps> = React.memo(({ job, on
                 </div>
 
                 {/* Main Content: Two Column Layout - Upload LEFT, Workflow RIGHT */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-16">
+                {/* MAIN GRID LAYOUT */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-6 mt-16">
                     {/* LEFT: Upload Area */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">

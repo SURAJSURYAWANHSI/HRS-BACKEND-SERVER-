@@ -79,9 +79,9 @@ export const DesignStage: React.FC<DesignStageProps> = ({
             {/* Content Switcher */}
             {!showHistory ? (
                 // ACTIVE CARDS GRID
-                <div className="grid grid-cols-1 gap-8 pb-20">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
                     {activeDesignJobs.length === 0 ? (
-                        <div className="bg-white/80 dark:bg-[#111827]/80 backdrop-blur-3xl rounded-[2rem] p-16 border border-slate-200 dark:border-slate-800/50 shadow-2xl flex flex-col items-center justify-center gap-6 text-center">
+                        <div className="col-span-full bg-white/80 dark:bg-[#111827]/80 backdrop-blur-3xl rounded-[2rem] p-16 border border-slate-200 dark:border-slate-800/50 shadow-2xl flex flex-col items-center justify-center gap-6 text-center">
                             <div className="p-8 rounded-full bg-blue-50 dark:bg-blue-900/20">
                                 <PenTool size={64} className="text-blue-500" />
                             </div>
