@@ -29,11 +29,11 @@ const STAGE_CONFIG: Record<JobStage, { icon: React.ReactElement; color: string; 
 export const ProductionStage: React.FC<ProductionStageProps> = ({ stage, jobs, onSkip, onSplitBatch, onMoveBatch, onRejectBatch, onReprocessBatch }) => {
     const config = STAGE_CONFIG[stage];
 
-    // 1. Find active batches
+    // 1. Find active batches - exclude COMPLETED (awaiting QC) as they show in QC Stage
     const stageBatches = jobs.flatMap(job => {
         if (!job.batches) return [];
         return job.batches
-            .filter(b => b.stage === stage)
+            .filter(b => b.stage === stage && b.status !== 'COMPLETED' && b.status !== 'OK_QUALITY')
             .map(b => ({ batch: b, job }));
     });
 

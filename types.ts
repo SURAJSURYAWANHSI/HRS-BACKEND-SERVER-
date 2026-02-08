@@ -22,9 +22,12 @@ export interface DesignSubTask {
 
 export type QCStatus = 'PENDING' | 'READY_FOR_QC' | 'APPROVED' | 'REJECTED';
 
+// Dispatch workflow status for tracking after dispatch
+export type DispatchStatus = 'PENDING' | 'DISPATCHED' | 'INVOICE_PENDING' | 'PAYMENT_PENDING' | 'CLOSED';
+
 export type UserRole = 'ADMIN' | 'WORKER' | 'QC';
 
-export type JobActionType = 'START' | 'PAUSE' | 'COMPLETE' | 'QC_APPROVE' | 'QC_REJECT' | 'SKIP' | 'CREATE' | 'DISPATCH_READY' | 'DISPATCH';
+export type JobActionType = 'START' | 'PAUSE' | 'COMPLETE' | 'QC_APPROVE' | 'QC_REJECT' | 'SKIP' | 'CREATE' | 'DISPATCH_READY' | 'DISPATCH' | 'INVOICE_GENERATED' | 'PAYMENT_RECEIVED' | 'ORDER_CLOSED';
 
 export type RejectionReason =
   | 'Dimension issue'
@@ -152,6 +155,11 @@ export interface Job {
   dispatcherName?: string;
   dispatchMessage?: string;
   actualDispatchTime?: number;
+  dispatchStatus?: DispatchStatus; // Tracks: PENDING -> DISPATCHED -> INVOICE_PENDING -> PAYMENT_PENDING -> CLOSED
+  invoiceDate?: number;
+  invoiceAmount?: number;
+  paymentDate?: number;
+  closedDate?: number;
 }
 
 export interface Worker {
@@ -260,16 +268,32 @@ export interface Shift {
 
 // Inventory System
 export type StockType = 'NEW' | 'OLD' | 'EXPIRED';
-export type InventoryCategory = 'Raw Material' | 'Paint' | 'Wiring' | 'Hardware' | 'Packaging' | 'Tools' | 'Other';
+export type InventoryCategory =
+  | 'Raw Material'
+  | 'Paint'
+  | 'Powder'        // Powder coating
+  | 'Wiring'
+  | 'Hardware'      // Bolts, nuts, washers
+  | 'Gasket'        // Gaskets
+  | 'Lock'          // Locks
+  | 'Hinge'         // Hinges
+  | 'Wooden'        // Wooden materials
+  | 'Nails'         // Nails
+  | 'Packaging'
+  | 'Tools'
+  | 'Other';
 
-export type InventoryStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'ORDERED';
+export type InventoryStatus = 'AVAILABLE' | 'SHORTAGE' | 'NOT_AVAILABLE' | 'PLEASE_MENTEN' | 'ORDERED';
 
 export interface InventoryItem {
   id: string;
+  srNo: number;                    // Serial number for display
   name: string;
-  sku: string;
+  sku: string;                     // Product Code
   category: InventoryCategory;
-  quantity: number;
+  productFamily: string;           // Product family grouping (Hardware, Powder, etc.)
+  quantity: number;                // Balance Qty
+  previousBalance: number;         // Previous month balance
   unit: string;
   minStock: number;
   maxStock: number;

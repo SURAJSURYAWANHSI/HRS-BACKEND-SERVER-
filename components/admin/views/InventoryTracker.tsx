@@ -16,12 +16,14 @@ interface InventoryTrackerProps {
 
 const getStatusConfig = (status: InventoryStatus) => {
     switch (status) {
-        case 'IN_STOCK':
-            return { label: 'In Stock', color: 'bg-emerald-500/20 text-emerald-400', icon: CheckCircle };
-        case 'LOW_STOCK':
-            return { label: 'Low Stock', color: 'bg-amber-500/20 text-amber-400', icon: TrendingDown };
-        case 'OUT_OF_STOCK':
-            return { label: 'Out of Stock', color: 'bg-rose-500/20 text-rose-400', icon: AlertTriangle };
+        case 'AVAILABLE':
+            return { label: 'Available', color: 'bg-emerald-500/20 text-emerald-400', icon: CheckCircle };
+        case 'SHORTAGE':
+            return { label: 'Shortage', color: 'bg-amber-500/20 text-amber-400', icon: TrendingDown };
+        case 'NOT_AVAILABLE':
+            return { label: 'Not Available', color: 'bg-rose-500/20 text-rose-400', icon: AlertTriangle };
+        case 'PLEASE_MENTEN':
+            return { label: 'Please Menten', color: 'bg-yellow-500/20 text-yellow-400', icon: AlertTriangle };
         case 'ORDERED':
             return { label: 'Ordered', color: 'bg-blue-500/20 text-blue-400', icon: Package };
         default:
@@ -42,13 +44,16 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
         name: '',
         sku: '',
         category: 'Raw Material',
+        productFamily: '',
         quantity: 0,
+        previousBalance: 0,
         unit: 'pcs',
         minStock: 10,
         location: '',
         supplier: '',
         unitCost: 0,
         stockType: 'NEW',
+        status: 'AVAILABLE',
         expiryDate: undefined,
         deliveryDueDate: undefined
     });
@@ -79,8 +84,8 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
         return matchesSearch && matchesCategory && matchesStock;
     });
 
-    const lowStockCount = inventory.filter(i => i.quantity <= i.minStock).length;
-    const outOfStockCount = inventory.filter(i => i.quantity === 0).length;
+    const shortageCount = inventory.filter(i => i.status === 'SHORTAGE' || i.status === 'PLEASE_MENTEN').length;
+    const notAvailableCount = inventory.filter(i => i.status === 'NOT_AVAILABLE').length;
 
     const handleSubmit = () => {
         if (!formData.name?.trim() || !formData.sku?.trim()) return;
@@ -89,13 +94,22 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
             onUpdateItem(editingItem.id, formData);
         } else {
             // Ensure all required fields are present for new item
+            // Auto-generate srNo based on existing inventory length
+            const newSrNo = inventory.length > 0
+                ? Math.max(...inventory.map(i => i.srNo || 0)) + 1
+                : 1;
+
             const newItem = {
                 ...formData,
+                srNo: newSrNo,
                 stockType: formData.stockType || 'NEW',
                 category: formData.category || 'Raw Material',
+                productFamily: formData.productFamily || '',
                 minStock: formData.minStock || 10,
                 quantity: formData.quantity || 0,
-                unit: formData.unit || 'pcs'
+                previousBalance: formData.previousBalance || 0,
+                unit: formData.unit || 'pcs',
+                status: formData.status || 'AVAILABLE'
             } as any;
             onAddItem(newItem);
         }
@@ -108,13 +122,16 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
             name: '',
             sku: '',
             category: 'Raw Material',
+            productFamily: '',
             quantity: 0,
+            previousBalance: 0,
             unit: 'pcs',
             minStock: 10,
             maxStock: 1000,
             location: '',
             supplier: '',
-            unitCost: 0
+            unitCost: 0,
+            status: 'AVAILABLE'
         });
         setShowForm(false);
         setEditingItem(null);
@@ -126,13 +143,16 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
             name: item.name,
             sku: item.sku,
             category: item.category,
+            productFamily: item.productFamily || '',
             quantity: item.quantity,
+            previousBalance: item.previousBalance || 0,
             unit: item.unit,
             minStock: item.minStock,
             maxStock: item.maxStock,
             location: item.location,
             supplier: item.supplier || '',
-            unitCost: item.unitCost || 0
+            unitCost: item.unitCost || 0,
+            status: item.status
         });
         setShowForm(true);
     };
@@ -173,8 +193,8 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                             <TrendingDown size={18} className="text-white" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-amber-400">{lowStockCount}</p>
-                            <p className="text-xs text-slate-400">Low Stock</p>
+                            <p className="text-2xl font-black text-amber-400">{shortageCount}</p>
+                            <p className="text-xs text-slate-400">Shortage</p>
                         </div>
                     </div>
                 </div>
@@ -184,8 +204,8 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                             <AlertTriangle size={18} className="text-white" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-rose-400">{outOfStockCount}</p>
-                            <p className="text-xs text-slate-400">Out of Stock</p>
+                            <p className="text-2xl font-black text-rose-400">{notAvailableCount}</p>
+                            <p className="text-xs text-slate-400">Not Available</p>
                         </div>
                     </div>
                 </div>
@@ -205,36 +225,47 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                 </div>
 
                 {/* Filters */}
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                     <div className="relative group">
                         <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value as any)}
-                            className="appearance-none bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 pr-10 text-slate-300 text-sm outline-none focus:border-slate-500 cursor-pointer min-w-[140px]"
+                            className="appearance-none bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-indigo-500/30 rounded-xl px-5 py-3 pr-12 text-white font-semibold text-sm outline-none hover:border-indigo-400/60 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-w-[160px] shadow-lg shadow-black/20 transition-all duration-200 hover:shadow-indigo-500/10"
                         >
                             <option value="All">All Categories</option>
                             <option value="Raw Material">Raw Material</option>
                             <option value="Paint">Paint</option>
+                            <option value="Powder">Powder</option>
                             <option value="Wiring">Wiring</option>
                             <option value="Hardware">Hardware</option>
+                            <option value="Gasket">Gasket</option>
+                            <option value="Lock">Lock</option>
+                            <option value="Hinge">Hinge</option>
+                            <option value="Wooden">Wooden</option>
+                            <option value="Nails">Nails</option>
                             <option value="Packaging">Packaging</option>
                             <option value="Tools">Tools</option>
+                            <option value="Other">Other</option>
                         </select>
-                        <Filter size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none bg-indigo-500/20 p-1.5 rounded-lg group-hover:bg-indigo-500/30 transition-colors">
+                            <Filter size={14} className="text-indigo-300" />
+                        </div>
                     </div>
 
                     <div className="relative group">
                         <select
                             value={filterStockType}
                             onChange={(e) => setFilterStockType(e.target.value as any)}
-                            className="appearance-none bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 pr-10 text-slate-300 text-sm outline-none focus:border-slate-500 cursor-pointer min-w-[140px]"
+                            className="appearance-none bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-cyan-500/30 rounded-xl px-5 py-3 pr-12 text-white font-semibold text-sm outline-none hover:border-cyan-400/60 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 cursor-pointer min-w-[160px] shadow-lg shadow-black/20 transition-all duration-200 hover:shadow-cyan-500/10"
                         >
                             <option value="All">All Stock Types</option>
                             <option value="NEW">New Stock</option>
                             <option value="OLD">Old Stock</option>
                             <option value="EXPIRED">Expired Stock</option>
                         </select>
-                        <Filter size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none bg-cyan-500/20 p-1.5 rounded-lg group-hover:bg-cyan-500/30 transition-colors">
+                            <Filter size={14} className="text-cyan-300" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -285,11 +316,44 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                                     >
                                         <option value="Raw Material">Raw Material</option>
                                         <option value="Paint">Paint</option>
+                                        <option value="Powder">Powder</option>
                                         <option value="Wiring">Wiring</option>
                                         <option value="Hardware">Hardware</option>
+                                        <option value="Gasket">Gasket</option>
+                                        <option value="Lock">Lock</option>
+                                        <option value="Hinge">Hinge</option>
+                                        <option value="Wooden">Wooden</option>
+                                        <option value="Nails">Nails</option>
                                         <option value="Packaging">Packaging</option>
                                         <option value="Tools">Tools</option>
                                         <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-2">Product Family</label>
+                                    <input
+                                        type="text"
+                                        value={formData.productFamily}
+                                        onChange={(e) => setFormData({ ...formData, productFamily: e.target.value })}
+                                        placeholder="e.g., Hardware, Powder"
+                                        className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white text-sm outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-2">Status</label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                                        className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white text-sm outline-none"
+                                    >
+                                        <option value="AVAILABLE">Available</option>
+                                        <option value="SHORTAGE">Shortage</option>
+                                        <option value="NOT_AVAILABLE">Not Available</option>
+                                        <option value="PLEASE_MENTEN">Please Menten</option>
+                                        <option value="ORDERED">Ordered</option>
                                     </select>
                                 </div>
                                 <div>
@@ -353,9 +417,18 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-4 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-400 mb-2">Quantity</label>
+                                    <label className="block text-xs font-medium text-slate-400 mb-2">Prev. Balance</label>
+                                    <input
+                                        type="number"
+                                        value={formData.previousBalance}
+                                        onChange={(e) => setFormData({ ...formData, previousBalance: Number(e.target.value) })}
+                                        className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white text-sm outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-400 mb-2">Balance Qty</label>
                                     <input
                                         type="number"
                                         value={formData.quantity}
@@ -424,10 +497,12 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                     <table className="w-full">
                         <thead>
                             <tr className="text-left text-xs text-slate-500 bg-slate-800/50">
-                                <th className="px-5 py-4 font-medium">Item</th>
-                                <th className="px-5 py-4 font-medium">SKU</th>
-                                <th className="px-5 py-4 font-medium">Category</th>
-                                <th className="px-5 py-4 font-medium text-center">Quantity</th>
+                                <th className="px-3 py-4 font-medium text-center w-14">Sr No</th>
+                                <th className="px-5 py-4 font-medium">Product Family</th>
+                                <th className="px-5 py-4 font-medium">SKU/Code</th>
+                                <th className="px-5 py-4 font-medium">Product Name</th>
+                                <th className="px-5 py-4 font-medium text-center">Prev. Bal</th>
+                                <th className="px-5 py-4 font-medium text-center">Balance Qty</th>
                                 <th className="px-5 py-4 font-medium text-center">Status</th>
                                 <th className="px-5 py-4 font-medium">Location</th>
                                 <th className="px-5 py-4 font-medium text-right">Actions</th>
@@ -435,21 +510,24 @@ export const InventoryTracker: React.FC<InventoryTrackerProps> = ({
                         </thead>
                         <tbody>
                             {filteredInventory.map((item) => {
-                                const status = item.quantity === 0 ? 'OUT_OF_STOCK'
-                                    : item.quantity <= item.minStock ? 'LOW_STOCK'
-                                        : 'IN_STOCK';
-                                const { label, color, icon: StatusIcon } = getStatusConfig(status);
+                                const { label, color, icon: StatusIcon } = getStatusConfig(item.status);
 
                                 return (
                                     <tr key={item.id} className="border-t border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                                        <td className="px-3 py-4 text-center">
+                                            <span className="text-xs font-bold text-slate-400">{item.srNo || '-'}</span>
+                                        </td>
                                         <td className="px-5 py-4">
-                                            <p className="font-medium text-white text-sm">{item.name}</p>
+                                            <span className="text-sm text-cyan-400 font-medium">{item.productFamily || item.category}</span>
                                         </td>
                                         <td className="px-5 py-4">
                                             <span className="text-xs font-mono text-slate-400">{item.sku}</span>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className="text-sm text-slate-400">{item.category}</span>
+                                            <p className="font-medium text-white text-sm">{item.name}</p>
+                                        </td>
+                                        <td className="px-5 py-4 text-center">
+                                            <span className="text-xs text-slate-400">{item.previousBalance || 0}</span>
                                         </td>
                                         <td className="px-5 py-4 text-center">
                                             <span className="text-sm font-bold text-white">

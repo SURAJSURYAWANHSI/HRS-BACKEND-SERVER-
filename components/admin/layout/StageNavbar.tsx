@@ -6,7 +6,7 @@ import {
 import { JobStage } from '../../../types';
 
 // Define the production flow order (excluding Dashboard, QC Audit, Alerts which are not stages)
-const STAGE_ORDER: JobStage[] = ['DESIGN', 'CUTTING', 'BENDING', 'PUNCHING', 'FABRICATION', 'POWDER_COATING', 'ASSEMBLY', 'DISPATCH'];
+const STAGE_ORDER: JobStage[] = ['DESIGN', 'CUTTING', 'PUNCHING', 'BENDING', 'FABRICATION', 'POWDER_COATING', 'ASSEMBLY', 'DISPATCH'];
 
 interface StageNavbarProps {
     currentView: any;
@@ -35,10 +35,11 @@ export const StageNavbar: React.FC<StageNavbarProps> = ({ currentView, setCurren
             <div className="bg-white/60 dark:bg-[#0B1121]/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800/80 rounded-full p-1.5 flex items-center gap-1 shadow-2xl mx-auto overflow-x-auto no-scrollbar max-w-full">
                 {[
                     { label: 'Dashboard', icon: <Activity size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'DASHBOARD' }, isStage: false },
+                    { label: 'Inbox', icon: <Megaphone size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'EMAIL' }, isStage: false },
                     { label: 'Design', icon: <PenTool size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'DESIGN' }, isStage: true },
                     { label: 'Cutting', icon: <Scissors size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'CUTTING' }, isStage: true },
-                    { label: 'Bending', icon: <Scissors size={13} className="rotate-90" />, view: { type: 'ADMIN_DASHBOARD', subView: 'BENDING' }, isStage: true },
                     { label: 'Punching', icon: <Radio size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'PUNCHING' }, isStage: true },
+                    { label: 'Bending', icon: <Scissors size={13} className="rotate-90" />, view: { type: 'ADMIN_DASHBOARD', subView: 'BENDING' }, isStage: true },
                     { label: 'Fabrication', icon: <Hammer size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'FABRICATION' }, isStage: true },
                     { label: 'Coating', icon: <Search size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'POWDER_COATING' }, isStage: true },
                     { label: 'Assembly', icon: <Wrench size={13} />, view: { type: 'ADMIN_DASHBOARD', subView: 'ASSEMBLY' }, isStage: true },

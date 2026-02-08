@@ -11,7 +11,7 @@ interface ReportsViewProps {
     workers: Worker[];
 }
 
-const STAGE_ORDER: JobStage[] = ['DESIGN', 'CUTTING', 'BENDING', 'PUNCHING', 'FABRICATION', 'POWDER_COATING', 'ASSEMBLY', 'DISPATCH'];
+const STAGE_ORDER: JobStage[] = ['DESIGN', 'CUTTING', 'PUNCHING', 'BENDING', 'FABRICATION', 'POWDER_COATING', 'ASSEMBLY', 'DISPATCH'];
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ jobs, workers }) => {
     const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -148,8 +148,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ jobs, workers }) => {
                                     key={type}
                                     onClick={() => setReportType(type)}
                                     className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${reportType === type
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                                        ? 'bg-blue-500 text-white'
+                                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
                                         }`}
                                 >
                                     {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -226,28 +226,78 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ jobs, workers }) => {
                 </div>
             </div>
 
-            {/* Top Performers */}
+            {/* Job History - Complete Process Records */}
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 print:border print:border-gray-300">
-                <div className="flex items-center gap-3 mb-6">
-                    <Users size={20} className="text-purple-400 print:text-purple-600" />
-                    <h2 className="text-lg font-bold text-white print:text-black">Top Performers</h2>
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <FileText size={20} className="text-emerald-400 print:text-emerald-600" />
+                        <h2 className="text-lg font-bold text-white print:text-black">Job History</h2>
+                    </div>
+                    <span className="text-xs text-slate-400">Complete process records for all jobs</span>
                 </div>
-                <div className="space-y-3">
-                    {metrics.workerStats.map((worker, idx) => (
-                        <div key={worker.workerId} className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl print:border print:border-gray-200">
-                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${idx === 0 ? 'bg-amber-500/20 text-amber-400' :
-                                    idx === 1 ? 'bg-slate-400/20 text-slate-300' :
-                                        idx === 2 ? 'bg-orange-500/20 text-orange-400' :
-                                            'bg-slate-700/50 text-slate-500'
-                                }`}>
-                                {idx + 1}
-                            </span>
-                            <div className="flex-1">
-                                <p className="font-bold text-white print:text-black">{worker.workerName}</p>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                    {jobs
+                        .filter(j => j.isCompleted || j.dispatchStatus)
+                        .sort((a, b) => b.lastUpdated - a.lastUpdated)
+                        .slice(0, 50)
+                        .map(job => (
+                            <div key={job.id} className="bg-slate-700/30 rounded-xl p-4 print:border print:border-gray-200">
+                                {/* Job Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <span className="text-xs text-blue-400 font-bold">#{job.codeNo}</span>
+                                        <h3 className="text-white font-bold print:text-black">{job.customer}</h3>
+                                        <p className="text-xs text-slate-400">{job.description}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${job.dispatchStatus === 'CLOSED' ? 'bg-emerald-500/20 text-emerald-400' :
+                                            job.dispatchStatus === 'DISPATCHED' ? 'bg-blue-500/20 text-blue-400' :
+                                                job.isCompleted ? 'bg-emerald-500/20 text-emerald-400' :
+                                                    'bg-amber-500/20 text-amber-400'
+                                            }`}>
+                                            {job.dispatchStatus || (job.isCompleted ? 'COMPLETED' : job.currentStage)}
+                                        </span>
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            {new Date(job.lastUpdated).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Stage History Timeline */}
+                                {job.history && job.history.length > 0 && (
+                                    <div className="border-t border-slate-600/50 pt-3 mt-3">
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Process History</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {job.history.slice(-8).map((h, idx) => (
+                                                <div key={h.id || idx} className="flex items-center gap-1 bg-slate-800/50 px-2 py-1 rounded text-[10px]">
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${h.action === 'QC_APPROVE' ? 'bg-emerald-400' :
+                                                        h.action === 'QC_REJECT' ? 'bg-rose-400' :
+                                                            h.action === 'DISPATCH' ? 'bg-blue-400' :
+                                                                'bg-slate-400'
+                                                        }`}></span>
+                                                    <span className="text-slate-300">{h.stage}</span>
+                                                    <span className="text-slate-500">•</span>
+                                                    <span className="text-slate-400">{h.action.replace(/_/g, ' ')}</span>
+                                                    <span className="text-slate-600">by {h.user}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Dispatch Info */}
+                                {job.dispatchStatus && (
+                                    <div className="flex gap-4 mt-3 pt-3 border-t border-slate-600/50 text-[10px]">
+                                        {job.vehicleNumber && <span className="text-slate-400">Vehicle: <span className="text-white">{job.vehicleNumber}</span></span>}
+                                        {job.invoiceNumber && <span className="text-slate-400">Invoice: <span className="text-white">{job.invoiceNumber}</span></span>}
+                                        {job.actualDispatchTime && <span className="text-slate-400">Dispatched: <span className="text-white">{new Date(job.actualDispatchTime).toLocaleDateString()}</span></span>}
+                                    </div>
+                                )}
                             </div>
-                            <p className="text-lg font-bold text-blue-400 print:text-blue-600">{worker.jobsCompleted} jobs</p>
-                        </div>
-                    ))}
+                        ))}
+                    {jobs.filter(j => j.isCompleted || j.dispatchStatus).length === 0 && (
+                        <p className="text-center text-slate-500 py-8">No completed jobs yet</p>
+                    )}
                 </div>
             </div>
 

@@ -137,21 +137,21 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
         trend?: { value: number; isUp: boolean };
         color: string;
     }) => (
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 hover:border-slate-600/50 transition-all">
+        <div className="bg-white dark:bg-slate-800/50 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 hover:border-slate-300 dark:hover:border-slate-600/50 transition-all shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
                     <Icon size={22} className="text-white" />
                 </div>
                 {trend && (
-                    <div className={`flex items-center gap-1 text-xs font-bold ${trend.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <div className={`flex items-center gap-1 text-xs font-bold ${trend.isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {trend.isUp ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
                         {trend.value}%
                     </div>
                 )}
             </div>
-            <p className="text-2xl font-black text-white mb-1">{value}</p>
-            <p className="text-xs text-slate-400 font-medium">{title}</p>
-            {subtitle && <p className="text-[10px] text-slate-500 mt-1">{subtitle}</p>}
+            <p className="text-2xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{title}</p>
+            {subtitle && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{subtitle}</p>}
         </div>
     );
 
@@ -161,16 +161,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
     };
 
     return (
-        <div className="p-6 space-y-6 bg-slate-900 min-h-full">
+        <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-900 min-h-full transition-colors duration-300">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-black text-white">Analytics Dashboard</h1>
-                    <p className="text-sm text-slate-400 mt-1">Production metrics and insights</p>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">Analytics Dashboard</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Production metrics and insights</p>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-700/50">
-                    <Activity size={16} className="text-emerald-400 animate-pulse" />
-                    <span className="text-xs font-bold text-slate-300">Live Data</span>
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none">
+                    <Activity size={16} className="text-emerald-500 dark:text-emerald-400 animate-pulse" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Live Data</span>
                 </div>
             </div>
 
@@ -236,28 +236,28 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
             </div>
 
             {/* Stage Distribution */}
-            <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
+            <div className="bg-white dark:bg-slate-800/50 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-6">
-                    <BarChart3 size={20} className="text-blue-400" />
-                    <h2 className="text-lg font-bold text-white">Stage Distribution</h2>
+                    <BarChart3 size={20} className="text-blue-500 dark:text-blue-400" />
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Stage Distribution</h2>
                 </div>
                 <div className="space-y-4">
                     {stageMetrics.map((stage) => (
                         <div key={stage.stage} className="flex items-center gap-4">
-                            <div className="w-32 text-xs font-medium text-slate-400 truncate">
+                            <div className="w-32 text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
                                 {STAGE_LABELS[stage.stage]}
                             </div>
-                            <div className="flex-1 h-8 bg-slate-700/50 rounded-lg overflow-hidden relative">
+                            <div className="flex-1 h-8 bg-slate-100 dark:bg-slate-700/50 rounded-lg overflow-hidden relative">
                                 <div
                                     className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg transition-all duration-500"
                                     style={{ width: getStageBarWidth(stage.jobCount) }}
                                 />
-                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-white">
                                     {stage.jobCount} jobs
                                 </span>
                             </div>
                             <div className="w-20 text-right">
-                                <span className="text-xs text-slate-400">{stage.avgTime}h avg</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">{stage.avgTime}h avg</span>
                             </div>
                         </div>
                     ))}
@@ -265,15 +265,15 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
             </div>
 
             {/* Worker Leaderboard */}
-            <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
+            <div className="bg-white dark:bg-slate-800/50 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-6">
-                    <Award size={20} className="text-amber-400" />
-                    <h2 className="text-lg font-bold text-white">Worker Performance</h2>
+                    <Award size={20} className="text-amber-500 dark:text-amber-400" />
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Worker Performance</h2>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-700/50">
+                            <tr className="text-left text-xs text-slate-500 border-b border-slate-200 dark:border-slate-700/50">
                                 <th className="pb-3 font-medium">Rank</th>
                                 <th className="pb-3 font-medium">Worker</th>
                                 <th className="pb-3 font-medium text-center">Jobs Done</th>
@@ -285,12 +285,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
                         </thead>
                         <tbody className="text-sm">
                             {workerStats.slice(0, 10).map((worker, idx) => (
-                                <tr key={worker.workerId} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                                <tr key={worker.workerId} className="border-b border-slate-100 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
                                     <td className="py-4">
-                                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-amber-500/20 text-amber-400' :
-                                                idx === 1 ? 'bg-slate-400/20 text-slate-300' :
-                                                    idx === 2 ? 'bg-orange-500/20 text-orange-400' :
-                                                        'bg-slate-700/50 text-slate-500'
+                                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                            idx === 1 ? 'bg-slate-200 dark:bg-slate-400/20 text-slate-600 dark:text-slate-300' :
+                                                idx === 2 ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400' :
+                                                    'bg-slate-100 dark:bg-slate-700/50 text-slate-500'
                                             }`}>
                                             {idx + 1}
                                         </span>
@@ -300,24 +300,24 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ jobs, workers }) =
                                             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
                                                 {worker.workerName.charAt(0)}
                                             </div>
-                                            <span className="font-medium text-white">{worker.workerName}</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">{worker.workerName}</span>
                                         </div>
                                     </td>
-                                    <td className="py-4 text-center font-bold text-white">{worker.jobsCompleted}</td>
-                                    <td className="py-4 text-center font-medium text-emerald-400">{worker.jobsCompletedToday}</td>
-                                    <td className="py-4 text-center text-slate-400">{worker.avgCompletionTime}h</td>
+                                    <td className="py-4 text-center font-bold text-slate-900 dark:text-white">{worker.jobsCompleted}</td>
+                                    <td className="py-4 text-center font-medium text-emerald-600 dark:text-emerald-400">{worker.jobsCompletedToday}</td>
+                                    <td className="py-4 text-center text-slate-500 dark:text-slate-400">{worker.avgCompletionTime}h</td>
                                     <td className="py-4 text-center">
-                                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${worker.qualityScore >= 90 ? 'bg-emerald-500/20 text-emerald-400' :
-                                                worker.qualityScore >= 70 ? 'bg-amber-500/20 text-amber-400' :
-                                                    'bg-rose-500/20 text-rose-400'
+                                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${worker.qualityScore >= 90 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                                            worker.qualityScore >= 70 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                                'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
                                             }`}>
                                             {worker.qualityScore}%
                                         </span>
                                     </td>
                                     <td className="py-4 text-center">
-                                        <span className={`flex items-center justify-center gap-1.5 text-xs font-medium ${worker.isActive ? 'text-emerald-400' : 'text-slate-500'
+                                        <span className={`flex items-center justify-center gap-1.5 text-xs font-medium ${worker.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
                                             }`}>
-                                            <span className={`w-2 h-2 rounded-full ${worker.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
+                                            <span className={`w-2 h-2 rounded-full ${worker.isActive ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
                                             {worker.isActive ? 'Active' : 'Idle'}
                                         </span>
                                     </td>

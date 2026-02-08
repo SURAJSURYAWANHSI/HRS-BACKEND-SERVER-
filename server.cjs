@@ -24,6 +24,7 @@ const io = new Server(server, {
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'jobs.json');
 const EMAILS_FILE = path.join(DATA_DIR, 'emails.json');
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -80,9 +81,32 @@ const saveEmails = (emails) => {
     }
 };
 
+const loadMessages = () => {
+    try {
+        if (fs.existsSync(MESSAGES_FILE)) {
+            const raw = fs.readFileSync(MESSAGES_FILE, 'utf8');
+            const data = JSON.parse(raw);
+            console.log(`[Persistence] Loaded ${data.length} messages from disk.`);
+            return data;
+        }
+    } catch (err) {
+        console.error("[Persistence] Error loading messages:", err);
+    }
+    return [];
+};
+
+const saveMessages = (messages) => {
+    try {
+        fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2));
+    } catch (err) {
+        console.error("[Persistence] Error saving messages:", err);
+    }
+};
+
 // GLOBAL STATE (Source of Truth)
 let globalJobs = loadJobs();
 let globalEmails = loadEmails();
+let globalMessages = loadMessages();
 const userSockets = new Map(); // UserId -> SocketId
 
 // -- SOCKET EVENTS --
@@ -178,10 +202,26 @@ io.on('connection', (socket) => {
         socket.emit('email:sync_all', globalEmails);
     });
 
+    socket.on('email:fetch_now', () => {
+        if (openInboxGlobal) {
+            console.log('Manual email fetch requested by client.');
+            openInboxGlobal();
+        }
+    });
+
+    // Chat Sync
+    socket.on('message:request_sync', () => {
+        socket.emit('message:sync_all', globalMessages);
+    });
+
     // -- COMMUNICATION --
 
     // Chat
     socket.on('message:send', (data) => {
+        // Save to global state and disk
+        globalMessages.push(data);
+        saveMessages(globalMessages);
+
         io.emit('message:receive', data);
 
         // FCM NOTIFICATION FOR CHAT
@@ -409,6 +449,8 @@ const startEmailListener = async () => {
     };
 
     // RECONNECTION LOGIC WRAPPER
+    let openInboxGlobal = null;
+
     const runListener = async () => {
         try {
             console.log('[Email System] Connecting to IMAP...');
@@ -528,11 +570,13 @@ const startEmailListener = async () => {
                 }
             };
 
+            openInboxGlobal = openInbox;
+
             // Initial check
             openInbox();
 
-            // Poll every 2 minutes
-            const intervalId = setInterval(openInbox, 120 * 1000);
+            // Poll every 15 seconds for testing (was 2 minutes)
+            const intervalId = setInterval(openInbox, 15 * 1000);
 
             // Handle connection close to clear interval
             connection.on('end', () => {

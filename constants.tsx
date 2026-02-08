@@ -22,8 +22,8 @@ export const DEFAULT_DESIGN_SUBTASKS: DesignSubTask[] = [
 export const STAGES: JobStage[] = [
   'DESIGN',
   'CUTTING',
-  'BENDING',
   'PUNCHING',
+  'BENDING',
   'FABRICATION',
   'POWDER_COATING',
   'ASSEMBLY',

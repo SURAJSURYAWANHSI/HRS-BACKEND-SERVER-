@@ -42,56 +42,56 @@ const TOAST_CONFIG: Record<ToastType, {
 }> = {
     success: {
         icon: CheckCircle2,
-        color: 'text-emerald-400',
-        bgColor: 'bg-emerald-500/10 border-emerald-500/30',
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bgColor: 'bg-white dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 shadow-lg dark:shadow-none',
         soundType: 'success'
     },
     error: {
         icon: AlertTriangle,
-        color: 'text-rose-400',
-        bgColor: 'bg-rose-500/10 border-rose-500/30',
+        color: 'text-rose-600 dark:text-rose-400',
+        bgColor: 'bg-white dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/30 shadow-lg dark:shadow-none',
         soundType: 'error'
     },
     warning: {
         icon: AlertTriangle,
-        color: 'text-amber-400',
-        bgColor: 'bg-amber-500/10 border-amber-500/30',
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-white dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 shadow-lg dark:shadow-none',
         soundType: 'warning'
     },
     info: {
         icon: Info,
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500/10 border-blue-500/30',
+        color: 'text-blue-600 dark:text-blue-400',
+        bgColor: 'bg-white dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/30 shadow-lg dark:shadow-none',
         soundType: 'job_update'
     },
     message: {
         icon: MessageCircle,
-        color: 'text-indigo-400',
-        bgColor: 'bg-indigo-500/10 border-indigo-500/30',
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bgColor: 'bg-white dark:bg-indigo-500/10 border border-indigo-300 dark:border-indigo-500/30 shadow-lg dark:shadow-none',
         soundType: 'message'
     },
     call: {
         icon: Video,
-        color: 'text-green-400',
-        bgColor: 'bg-green-500/10 border-green-500/30',
+        color: 'text-green-600 dark:text-green-400',
+        bgColor: 'bg-white dark:bg-green-500/10 border border-green-300 dark:border-green-500/30 shadow-lg dark:shadow-none',
         soundType: 'video_call'
     },
     job: {
         icon: Briefcase,
-        color: 'text-purple-400',
-        bgColor: 'bg-purple-500/10 border-purple-500/30',
+        color: 'text-purple-600 dark:text-purple-400',
+        bgColor: 'bg-white dark:bg-purple-500/10 border border-purple-300 dark:border-purple-500/30 shadow-lg dark:shadow-none',
         soundType: 'stage_complete'
     },
     qc: {
         icon: Shield,
-        color: 'text-orange-400',
-        bgColor: 'bg-orange-500/10 border-orange-500/30',
+        color: 'text-orange-600 dark:text-orange-400',
+        bgColor: 'bg-white dark:bg-orange-500/10 border border-orange-300 dark:border-orange-500/30 shadow-lg dark:shadow-none',
         soundType: 'qc_alert'
     },
     announcement: {
         icon: Megaphone,
-        color: 'text-cyan-400',
-        bgColor: 'bg-cyan-500/10 border-cyan-500/30',
+        color: 'text-cyan-600 dark:text-cyan-400',
+        bgColor: 'bg-white dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/30 shadow-lg dark:shadow-none',
         soundType: 'announcement'
     }
 };
@@ -148,10 +148,10 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">{toast.title}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">{toast.title}</p>
                 {
                     toast.message && (
-                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{toast.message}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{toast.message}</p>
                     )
                 }
                 {
@@ -169,17 +169,17 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
             {/* Close button */}
             <button
                 onClick={(e) => { e.stopPropagation(); handleClose(); }}
-                className="flex-shrink-0 p-1 hover:bg-white/10 rounded-lg transition-colors"
+                className="flex-shrink-0 p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
             >
-                <X size={16} className="text-slate-400" />
+                <X size={16} className="text-slate-500 dark:text-slate-400" />
             </button>
 
             {/* Progress bar */}
             {
                 !toast.persistent && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 overflow-hidden">
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-200 dark:bg-white/10 overflow-hidden">
                         <div
-                            className={`h-full ${config.color.replace('text-', 'bg-')} transition-all ease-linear`}
+                            className={`h-full ${config.color.replace('text-', 'bg-').replace('dark:', '').split(' ')[0]} transition-all ease-linear`}
                             style={{
                                 animation: `shrink ${toast.duration || 4000}ms linear forwards`
                             }}

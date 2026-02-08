@@ -90,6 +90,15 @@ export const Header: React.FC<HeaderProps> = ({
 
                         <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block" />
 
+                        {/* Dark Mode Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2.5 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/50 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all hover:scale-105 active:scale-95"
+                            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                        >
+                            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
+
                         {/* Notification Bell */}
                         <NotificationBell
                             notifications={notifications}

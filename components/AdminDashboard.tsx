@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { WorkflowEngine } from '../services/workflow';
 import { socketService } from '../services/socket';
-import { Job, Message, Worker, JobStage, RejectionReason, QCStatus, JobActionType } from '../types';
+import { Job, Message, Worker, JobStage, RejectionReason, QCStatus, JobActionType, Email } from '../types';
 import { STAGES, STAGE_LABELS, STAGE_COLORS, DEFAULT_DESIGN_SUBTASKS } from '../constants';
 
 // UI Components
@@ -27,9 +27,10 @@ import { DispatchStage } from './admin/stages/DispatchStage'; // Import Dispatch
 import { ReturnManagementView } from './admin/widgets/ReturnManagementView';
 import { AllUnitsView } from './admin/views/AllUnitsView';
 import { ProductsView } from './admin/views/ProductsView';
+import { EmailInbox } from './admin/views/EmailInbox';
 
 interface AdminDashboardProps {
-    currentView: 'DASHBOARD' | 'LEDGER' | 'BROADCAST' | 'QUALITY' | 'RETURNS' | 'ALL_UNITS' | 'PRODUCTS' | JobStage;
+    currentView: 'DASHBOARD' | 'LEDGER' | 'BROADCAST' | 'QUALITY' | 'RETURNS' | 'ALL_UNITS' | 'PRODUCTS' | 'EMAIL' | JobStage;
     setView: (view: string) => void;
     jobs: Job[];
     setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
@@ -56,6 +57,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
     }, [selectedJobDetail, onJobSelect]);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null);
+    const [emails, setEmails] = useState<Email[]>([]);
 
     // Dispatch Specific State
     const [dispatchVehicle, setDispatchVehicle] = useState('');
@@ -124,7 +126,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                     let shouldPlay = false;
 
                     if (updates.qcStatus === 'READY_FOR_QC' && j.qcStatus !== 'READY_FOR_QC') {
-                        notifyMsg = `Job ${j.codeNo} is Ready for QC`;
+                        if (j.currentStage === 'DISPATCH') {
+                            notifyMsg = `Job ${j.codeNo}: Dispatch Approval Requested`;
+                        } else {
+                            notifyMsg = `Job ${j.codeNo} is Ready for QC`;
+                        }
                         shouldPlay = true;
                     } else if (updates.currentStage && updates.currentStage !== j.currentStage) {
                         notifyMsg = `Job ${j.codeNo} moved to ${updates.currentStage}`;
@@ -154,6 +160,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                 return j;
             }));
 
+        });
+
+        // Email Sync
+        socketService.onMessage('email:receive', (email: Email) => {
+            setEmails(prev => [email, ...prev]);
+            playNotificationSound();
+        });
+
+        socketService.onMessage('email:sync_all', (allEmails: Email[]) => {
+            console.log(`[Admin] Synced ${allEmails.length} emails`);
+            setEmails(allEmails);
         });
 
         socketService.onMessage('job:request_upload', (data: any) => {
@@ -201,8 +218,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                 let batches = j.batches || [];
                 // Only create if we are moving to a stage that requires batches (basically any non-design stage)
                 if ((!batches || batches.length === 0) && nextStage !== 'COMPLETED' && nextStage !== 'DESIGN') {
-                    console.log('Initializing batches for production');
+                    console.log('Initializing batches for production at stage:', nextStage);
                     batches = WorkflowEngine.createInitialBatch(j);
+                    // IMPORTANT: Update batch stage to the NEXT stage (not DESIGN)
+                    batches = batches.map(b => ({
+                        ...b,
+                        stage: nextStage as JobStage
+                    }));
                 }
 
                 const updatedJob = {
@@ -344,27 +366,134 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
     const handleDispatchComplete = (id: string) => {
         setJobs(prev => prev.map(j => {
             if (j.id === id) {
-                const completedJob = WorkflowEngine.completeStage(j, 'Final Dispatch');
+                // Mark as DISPATCHED (not completed yet - awaiting invoice/payment)
+                const updatedJob = {
+                    ...j,
+                    dispatchStatus: 'DISPATCHED' as const,
+                    actualDispatchTime: Date.now(),
+                    qcStatus: 'APPROVED' as QCStatus, // Clear QC status
+                    lastUpdated: Date.now(),
+                    history: [...(j.history || []), {
+                        id: Date.now().toString(),
+                        jobId: j.id,
+                        action: 'DISPATCH' as const,
+                        stage: 'DISPATCH' as const,
+                        timestamp: Date.now(),
+                        user: 'Admin',
+                        details: `Job dispatched (QC Approved), awaiting invoice`
+                    }]
+                };
 
                 // EMIT SOCKET UPDATE for Worker sync
                 socketService.sendMessage('job:update_status', {
                     jobId: id,
-                    status: 'COMPLETED',
-                    updates: completedJob
+                    status: 'DISPATCHED',
+                    updates: updatedJob
                 });
 
-                return completedJob;
+                return updatedJob;
+            }
+            return j;
+        }));
+    };
+
+    const handleInvoiceGenerated = (id: string, invoiceNo: string, amount: number) => {
+        setJobs(prev => prev.map(j => {
+            if (j.id === id) {
+                const updatedJob = {
+                    ...j,
+                    dispatchStatus: 'INVOICE_PENDING' as const,
+                    invoiceNumber: invoiceNo,
+                    invoiceAmount: amount,
+                    invoiceDate: Date.now(),
+                    lastUpdated: Date.now(),
+                    history: [...(j.history || []), {
+                        id: Date.now().toString(),
+                        jobId: j.id,
+                        action: 'INVOICE_GENERATED' as const,
+                        stage: 'DISPATCH' as const,
+                        timestamp: Date.now(),
+                        user: 'Admin',
+                        details: `Invoice generated: ${invoiceNo} (Amount: ₹${amount})`
+                    }]
+                };
+
+                socketService.sendMessage('job:update_status', {
+                    jobId: id,
+                    status: 'INVOICE_PENDING',
+                    updates: updatedJob
+                });
+
+                return updatedJob;
+            }
+            return j;
+        }));
+    };
+
+    const handlePaymentReceived = (id: string) => {
+        setJobs(prev => prev.map(j => {
+            if (j.id === id) {
+                const updatedJob = {
+                    ...j,
+                    dispatchStatus: 'PAYMENT_PENDING' as const,
+                    paymentDate: Date.now(),
+                    lastUpdated: Date.now(),
+                    history: [...(j.history || []), {
+                        id: Date.now().toString(),
+                        jobId: j.id,
+                        action: 'PAYMENT_RECEIVED' as const,
+                        stage: 'DISPATCH' as const,
+                        timestamp: Date.now(),
+                        user: 'Admin',
+                        details: `Payment received`
+                    }]
+                };
+
+                socketService.sendMessage('job:update_status', {
+                    jobId: id,
+                    status: 'PAYMENT_PENDING',
+                    updates: updatedJob
+                });
+
+                return updatedJob;
+            }
+            return j;
+        }));
+    };
+
+    const handleCloseOrder = (id: string) => {
+        setJobs(prev => prev.map(j => {
+            if (j.id === id) {
+                const updatedJob = {
+                    ...j,
+                    dispatchStatus: 'CLOSED' as const,
+                    closedDate: Date.now(),
+                    isCompleted: true,
+                    lastUpdated: Date.now(),
+                    history: [...(j.history || []), {
+                        id: Date.now().toString(),
+                        jobId: j.id,
+                        action: 'ORDER_CLOSED' as const,
+                        stage: 'DISPATCH' as const,
+                        timestamp: Date.now(),
+                        user: 'Admin',
+                        details: `Order closed and archived`
+                    }]
+                };
+
+                socketService.sendMessage('job:update_status', {
+                    jobId: id,
+                    status: 'CLOSED',
+                    updates: updatedJob
+                });
+
+                return updatedJob;
             }
             return j;
         }));
     };
 
     const handleDispatchReject = (id: string, reason: string) => {
-        // Dispatch reject might imply going back to rework or just flagging.
-        // Reusing rejectQC for now or we could add a specific Dispatch Reject workflow if needed.
-        // Assuming strict flow: reject at dispatch might act like QC reject or simply a hold.
-        // Let's treat it as a QC reject for simplicity to push it back to pending if needed, or just log it.
-        // But user said "Reject with Reason". We'll use the Workflow engine's reject mechanism.
         setJobs(prev => prev.map(j => {
             if (j.id === id) {
                 const updated = WorkflowEngine.rejectQC(j, 'Dispatch Admin', reason as RejectionReason);
@@ -588,10 +717,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                     return j.currentStage === 'DESIGN';
                 }
 
-                // Production & Dispatch: Check if ANY batch is in this stage
-                // This ensures that if a job is split (e.g., Part Bending, Part Cutting), it appears in BOTH views
+                // Dispatch Stage: Use currentStage check
+                if (currentView === 'DISPATCH') {
+                    return j.currentStage === 'DISPATCH';
+                }
+
+                // Production Stages: Check if ANY batch is in this stage AND is actively being processed
+                // Exclude COMPLETED batches (they show in QC) and OK_QUALITY (they moved on)
                 if (j.batches && j.batches.length > 0) {
-                    return j.batches.some(b => b.stage === currentView);
+                    return j.batches.some(b =>
+                        b.stage === currentView &&
+                        (b.status === 'PENDING' || b.status === 'IN_PROGRESS' || b.status === 'REJECTED')
+                    );
                 }
 
                 // Fallback (Legacy/No Batches)
@@ -702,11 +839,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                 {currentView === 'FABRICATION' && <ProductionStage stage="FABRICATION" jobs={displayedJobs} onMarkComplete={handleMarkComplete} onSkip={handleSkipStage} onSplitBatch={handleSplitBatch} onMoveBatch={handleMoveBatch} onRejectBatch={handleRejectBatch} onReprocessBatch={handleReprocessBatch} />}
                 {currentView === 'POWDER_COATING' && <ProductionStage stage="POWDER_COATING" jobs={displayedJobs} onMarkComplete={handleMarkComplete} onSkip={handleSkipStage} onSplitBatch={handleSplitBatch} onMoveBatch={handleMoveBatch} onRejectBatch={handleRejectBatch} onReprocessBatch={handleReprocessBatch} />}
                 {currentView === 'ASSEMBLY' && <ProductionStage stage="ASSEMBLY" jobs={displayedJobs} onMarkComplete={handleMarkComplete} onSkip={handleSkipStage} onSplitBatch={handleSplitBatch} onMoveBatch={handleMoveBatch} onRejectBatch={handleRejectBatch} onReprocessBatch={handleReprocessBatch} />}
-                {currentView === 'DISPATCH' && <DispatchStage jobs={displayedJobs} onSetReady={handleDispatchSetReady} onDispatchComplete={handleDispatchComplete} onReject={handleDispatchReject} onCustomerReturn={handleCustomerReturn} />}
+                {currentView === 'DISPATCH' && <DispatchStage jobs={jobs} onSetReady={handleDispatchSetReady} onDispatchComplete={handleDispatchComplete} onReject={handleDispatchReject} onCustomerReturn={handleCustomerReturn} onInvoiceGenerated={handleInvoiceGenerated} onPaymentReceived={handlePaymentReceived} onCloseOrder={handleCloseOrder} />}
                 {currentView === 'QUALITY' && <QCStage jobs={displayedJobs} onApprove={handleQCApprove} onReject={handleQCReject} onApproveBatch={handleMoveBatch} onRejectBatch={handleRejectBatch} currentUser="Admin" />}
                 {currentView === 'RETURNS' && <ReturnManagementView jobs={jobs} onReprocess={handleReprocessBatch} onScrap={handleRejectBatch} />}
                 {currentView === 'ALL_UNITS' && <AllUnitsView jobs={jobs} />}
                 {currentView === 'PRODUCTS' && <ProductsView />}
+                {currentView === 'EMAIL' && <EmailInbox emails={emails} onRefresh={() => socketService.sendMessage('email:fetch_now', {})} />}
             </div>
 
             {/* Job Inspector Modal - Centered */}

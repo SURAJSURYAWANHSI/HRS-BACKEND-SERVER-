@@ -58,15 +58,27 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
         const handleConnect = () => setIsConnected(true);
         const handleDisconnect = () => setIsConnected(false);
 
+        const handleSync = (allMessages: Message[]) => {
+            console.log('[TeamsView] Synced messages:', allMessages.length);
+            setMessages(allMessages);
+        };
+
         socketService.onMessage('message:receive', handleMessage);
+        socketService.onMessage('message:sync_all', handleSync);
         socketService.onConnect(handleConnect);
         socketService.socket?.on('disconnect', handleDisconnect);
 
         // Initial check
         setIsConnected(socketService.isConnected());
 
+        // Request history
+        setTimeout(() => {
+            socketService.sendMessage('message:request_sync', {});
+        }, 500);
+
         return () => {
-            // Cleanup not strictly necessary for singleton signals but good practice if we had removeListener
+            socketService.off('message:receive');
+            socketService.off('message:sync_all');
         };
     }, []);
 
@@ -317,24 +329,24 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
 
     return (
         <>
-            <div className="flex flex-col md:flex-row h-full md:h-[calc(100vh-180px)] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 rounded-2xl overflow-hidden border border-slate-700/50 shadow-2xl m-0 md:m-4">
+            <div className="flex flex-col md:flex-row h-full md:h-[calc(100vh-180px)] bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700/50 shadow-xl dark:shadow-2xl m-0 md:m-4 transition-colors duration-300">
 
                 {/* LEFT: Team Members List */}
-                <div className={`${selectedWorker ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-slate-800/50 backdrop-blur-xl border-b md:border-b-0 md:border-r border-slate-700/50 flex-col max-h-[40vh] md:max-h-full overflow-hidden`}>
+                <div className={`${selectedWorker ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-xl border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700/50 flex-col max-h-[40vh] md:max-h-full overflow-hidden transition-colors duration-300`}>
                     {/* Header */}
-                    <div className="p-5 border-b border-slate-700/50 bg-gradient-to-r from-blue-600/10 to-purple-600/10">
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-700/50 bg-slate-100 dark:bg-slate-800 transition-colors duration-300">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
                                 <Users size={22} />
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-base font-bold text-white tracking-wide">Team Chat</h2>
+                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-wide">Team Chat</h2>
                                 <div className="flex items-center gap-3 mt-1">
-                                    <p className="text-xs text-slate-400">{teamMembers.length} members</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{teamMembers.length} members</p>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 ${isConnected
-                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+                                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                        : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-rose-500 dark:bg-rose-400'}`}></span>
                                         {isConnected ? 'LIVE' : 'OFFLINE'}
                                     </span>
                                 </div>
@@ -343,24 +355,24 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                     </div>
 
                     {/* Members List */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-700">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
                         {teamMembers.map(worker => (
                             <button
                                 key={worker.id}
                                 onClick={() => setSelectedWorker(worker)}
                                 className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${selectedWorker?.id === worker.id
                                     ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/25'
-                                    : 'hover:bg-slate-700/50 text-white'
+                                    : 'hover:bg-slate-200 dark:hover:bg-slate-700/50 text-slate-900 dark:text-white'
                                     }`}
                             >
                                 <div className="relative">
                                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm ${selectedWorker?.id === worker.id
                                         ? 'bg-white/20 text-white'
-                                        : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300'
+                                        : 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 text-slate-700 dark:text-slate-300'
                                         }`}>
                                         {worker.name.charAt(0)}
                                     </div>
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-slate-800 shadow-sm"></div>
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-800 shadow-sm"></div>
                                 </div>
                                 <div className="flex-1 text-left min-w-0">
                                     <p className="font-semibold text-sm truncate">{worker.name}</p>
@@ -377,25 +389,24 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                 </div>
 
                 {/* RIGHT: Chat Area */}
-                <div className="flex-1 flex flex-col bg-slate-900">
+                <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
                     {selectedWorker ? (
                         <>
                             {/* Chat Header */}
-                            <div className="h-18 bg-slate-800/80 backdrop-blur-xl border-b border-slate-700/50 flex items-center justify-between px-5 py-4">
+                            <div className="h-18 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between px-5 py-4 transition-colors duration-300">
                                 <div className="flex items-center gap-4">
-                                    <button onClick={() => setSelectedWorker(null)} className="md:hidden p-2 hover:bg-slate-700 rounded-xl text-slate-400 transition-colors">
+                                    <button onClick={() => setSelectedWorker(null)} className="md:hidden p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-400 transition-colors">
                                         <ChevronLeft size={20} />
                                     </button>
                                     <div className="relative">
                                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
                                             {selectedWorker.name.charAt(0)}
                                         </div>
-                                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-slate-800"></div>
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-800"></div>
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-white text-base">{selectedWorker.name}</h3>
-                                        <p className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <h3 className="font-bold text-slate-900 dark:text-white text-base">{selectedWorker.name}</h3>
+                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
                                             Online
                                         </p>
                                     </div>
@@ -419,14 +430,14 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                             </div>
 
                             {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-slate-900 to-slate-900/95">
+                            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-100 dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-900/95 transition-colors duration-300">
                                 {currentChat.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-slate-500">
-                                        <div className="w-20 h-20 bg-slate-800/50 rounded-2xl flex items-center justify-center mb-4">
-                                            <MessageCircle size={36} className="text-slate-600" />
+                                        <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800/50 rounded-2xl flex items-center justify-center mb-4">
+                                            <MessageCircle size={36} className="text-slate-400 dark:text-slate-600" />
                                         </div>
-                                        <p className="text-base font-semibold text-slate-400">No messages yet</p>
-                                        <p className="text-sm text-slate-600 mt-1">Start chatting with {selectedWorker.name}</p>
+                                        <p className="text-base font-semibold text-slate-500 dark:text-slate-400">No messages yet</p>
+                                        <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">Start chatting with {selectedWorker.name}</p>
                                     </div>
                                 ) : (
                                     currentChat.map((msg, idx) => {
@@ -437,13 +448,13 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                                                     {msg.type === 'text' && (
                                                         <div className={`px-4 py-3 rounded-2xl ${isMine
                                                             ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-br-md shadow-lg shadow-blue-500/20'
-                                                            : 'bg-slate-800 text-white rounded-bl-md border border-slate-700/50'
+                                                            : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md border border-slate-200 dark:border-slate-700/50 shadow-sm'
                                                             }`}>
                                                             <p className="text-sm leading-relaxed">{msg.content}</p>
                                                         </div>
                                                     )}
                                                     {(msg.type === 'image' || (msg.type === 'file' && (msg.content?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || msg.attachment_url?.startsWith('data:image')))) && (
-                                                        <div className={`p-1.5 rounded-2xl ${isMine ? 'bg-gradient-to-br from-blue-600 to-blue-500' : 'bg-slate-800 border border-slate-700/50'}`}>
+                                                        <div className={`p-1.5 rounded-2xl ${isMine ? 'bg-gradient-to-br from-blue-600 to-blue-500' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50'}`}>
                                                             <img src={msg.attachment_url || ''} alt="Shared" className="max-w-full h-auto rounded-xl max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.attachment_url, '_blank')} />
                                                         </div>
                                                     )}
@@ -485,31 +496,31 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                             </div>
 
                             {/* Input Area */}
-                            <div className="bg-slate-800/80 backdrop-blur-xl border-t border-slate-700/50 flex items-center gap-3 px-5 py-4">
+                            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700/50 flex items-center gap-3 px-5 py-4 transition-colors duration-300">
                                 {isRecording ? (
                                     <div className="flex-1 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
                                         <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
-                                        <span className="text-red-400 font-medium text-sm">Recording {formatTime(recordingTime)}</span>
+                                        <span className="text-red-500 dark:text-red-400 font-medium text-sm">Recording {formatTime(recordingTime)}</span>
                                         <button onClick={stopVoiceRecording} className="ml-auto p-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors" title="Stop & Send">
                                             <Square size={14} />
                                         </button>
-                                        <button onClick={() => { stopVoiceRecording(); }} className="p-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-colors" title="Cancel">
+                                        <button onClick={() => { stopVoiceRecording(); }} className="p-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl transition-colors" title="Cancel">
                                             <X size={14} />
                                         </button>
                                     </div>
                                 ) : (
                                     <>
                                         <div className="flex items-center gap-1">
-                                            <button onClick={() => fileInputRef.current?.click()} className="p-2.5 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all" title="Send Image">
+                                            <button onClick={() => fileInputRef.current?.click()} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl transition-all" title="Send Image">
                                                 <ImageIcon size={20} />
                                             </button>
                                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
 
-                                            <button onClick={openCamera} className="p-2.5 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all" title="Take Photo">
+                                            <button onClick={openCamera} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl transition-all" title="Take Photo">
                                                 <Camera size={20} />
                                             </button>
 
-                                            <button onClick={startVoiceRecording} className="p-2.5 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all" title="Voice Message">
+                                            <button onClick={startVoiceRecording} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl transition-all" title="Voice Message">
                                                 <Mic size={20} />
                                             </button>
                                         </div>
@@ -520,7 +531,7 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                                             onChange={(e) => setInputText(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                                             placeholder="Type a message..."
-                                            className="flex-1 bg-slate-700/50 border border-slate-600/50 focus:border-blue-500/50 outline-none px-4 py-3 rounded-xl text-sm text-white placeholder:text-slate-500 transition-colors"
+                                            className="flex-1 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600/50 focus:border-blue-500/50 outline-none px-4 py-3 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-colors"
                                         />
                                         <button
                                             onClick={handleSendMessage}
@@ -534,11 +545,11 @@ export const TeamsView: React.FC<TeamsViewProps> = ({ workers, currentUser }) =>
                             </div>
                         </>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center bg-slate-900">
-                            <div className="w-24 h-24 bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-3xl flex items-center justify-center mb-6 border border-slate-700/50">
-                                <MessageCircle size={40} className="text-slate-600" />
+                        <div className="flex-1 flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 transition-colors duration-300">
+                            <div className="w-24 h-24 bg-slate-200 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-700/50">
+                                <MessageCircle size={40} className="text-slate-400 dark:text-slate-400" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Select a Chat</h3>
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Select a Chat</h3>
                             <p className="text-sm text-slate-500 max-w-[250px] text-center">Choose a team member from the list to start a conversation</p>
                         </div>
                     )}
