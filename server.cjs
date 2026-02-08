@@ -396,11 +396,17 @@ const EMAIL_CONFIG = {
 };
 
 const SMTP_CONFIG = {
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
         user: EMAIL_CONFIG.user,
         pass: EMAIL_CONFIG.password
-    }
+    },
+    connectionTimeout: 20000, // 20s
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+    family: 4 // Force IPv4 to avoid ENETUNREACH on IPv6
 };
 
 const sendAutoReply = async (toEmail, originalSubject, customBody) => {
