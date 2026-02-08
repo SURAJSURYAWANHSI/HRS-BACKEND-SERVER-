@@ -725,13 +725,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentView, setView, j
                 // Production Stages: Check if ANY batch is in this stage AND is actively being processed
                 // Exclude COMPLETED batches (they show in QC) and OK_QUALITY (they moved on)
                 if (j.batches && j.batches.length > 0) {
-                    return j.batches.some(b =>
+                    const hasActiveBatch = j.batches.some(b =>
                         b.stage === currentView &&
                         (b.status === 'PENDING' || b.status === 'IN_PROGRESS' || b.status === 'REJECTED')
                     );
+                    if (hasActiveBatch) return true;
                 }
 
-                // Fallback (Legacy/No Batches)
+                // Fallback (Legacy/No Batches/Orphan Jobs)
+                // If the job says it is in this stage, show it (ProductionStage will handle it as 'Orphan' if no batches match)
                 return j.currentStage === currentView;
             });
         } else {
